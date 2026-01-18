@@ -923,7 +923,7 @@ import {
   }
   const Volunteer = ({ onScheduleUpdate, foodBankName })=> {
 
-    const [volunteerInfo, setVolunteerInfo] = useState(false)
+    const [selectedVolunteer, setSelectedVolunteer] = useState(null)
     const [inboxInfo, setInboxInfo] = useState(false)
     const [volunteers, setVolunteers] = useState([])
     const [inboxVolunteers, setInboxVolunteers] = useState([])
@@ -1307,70 +1307,78 @@ import {
                   <Text ml="md">Loading volunteers...</Text>
                 </Center>
               ) : (
-                <Table>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Name</Table.Th>
-                      <Table.Th>Email</Table.Th>
-                      <Table.Th>Actions</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {volunteers.length === 0 ? (
+                <>
+                  <Table>
+                    <Table.Thead>
                       <Table.Tr>
-                        <Table.Td colSpan={3}>
-                          <Center p="md">
-                            <Text color="dimmed">No verified volunteers found</Text>
-                          </Center>
-                        </Table.Td>
+                        <Table.Th>Name</Table.Th>
+                        <Table.Th>Email</Table.Th>
+                        <Table.Th>Actions</Table.Th>
                       </Table.Tr>
-                    ) : (
-                      volunteers.map((volunteer, idx)=> (
-                    <Table.Tr key={volunteer._id}>
-                    <Modal p={0} opened={volunteerInfo} onClose={()=> setVolunteerInfo(false)} centered size="lg" radius="md" padding="lg">
-                      
-                        <Paper m={0} p="md" radius="md" withBorder style={{ backgroundColor: "#f8fafc" }}>
-                          <Group align="center" mb="md" spacing="lg">
-                            <Avatar size={64} radius="xl" color="blue">
-                              {volunteer.first_name?.[0]}{volunteer.last_name?.[0]}
-                            </Avatar>
-                            <div>
-                              <Title order={3} mb={2}>{volunteer.first_name} {volunteer.last_name}</Title>
-                              <Text size="sm" color="dimmed">{volunteer.email}</Text>
-                            </div>
-                          </Group>
-                          <Grid gutter="md" mb="md">
-                            <Grid.Col span={6}>
-                              <Text size="sm" fw={500}><b>Phone:</b> {volunteer.phone_number}</Text>
-                              <Text size="sm" fw={500}><b>Zip:</b> {volunteer.zipcode}</Text>
-                              <Text size="sm" fw={500}><b>Date of Birth:</b> {volunteer.date_of_birth}</Text>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                              <Text size="sm" fw={500}><b>Availability:</b> {volunteer.availability}</Text>
-                              <Text size="sm" fw={500}><b>Roles:</b> {volunteer.roles}</Text>
-                              <Text size="sm" fw={500}><b>Verified:</b> {volunteer.verified ? 'Yes' : 'No'}</Text>
-                            </Grid.Col>
-                            
-                          </Grid>
-                          <Paper p="sm" radius="md" withBorder bg="gray.0">
-                            <Title order={5} mb={4} color="blue">Emergency Contact</Title>
-                            <Text size="sm" fw={500}><b>Name:</b> {volunteer.emergency_name}</Text>
-                            <Text size="sm" fw={500}><b>Phone:</b> {volunteer.emergency_number}</Text>
-                          </Paper>
-                          <Group mt="md">
-                            <Button color='blue' onClick={(e) => window.location.href = `mailto:${volunteer.email}`}>Email</Button>
-                            <Button color='red' onClick={() => handleDeleteVolunteer(volunteer._id)}>DELETE</Button>
-                          </Group>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {volunteers.length === 0 ? (
+                        <Table.Tr>
+                          <Table.Td colSpan={3}>
+                            <Center p="md">
+                              <Text color="dimmed">No verified volunteers found</Text>
+                            </Center>
+                          </Table.Td>
+                        </Table.Tr>
+                      ) : (
+                        volunteers.map((volunteer, idx)=> (
+                      <Table.Tr key={volunteer._id}>
+                      <Table.Td>{volunteer.first_name} {volunteer.last_name}</Table.Td>
+                      <Table.Td>{volunteer.email}</Table.Td>
+                      <Table.Td><Button variant="light" color="gray" radius="xl" onClick={()=> setSelectedVolunteer(volunteer)}><IconInfoCircle size={20} /></Button></Table.Td>
+                    </Table.Tr>
+                    ))
+                    )}
+                    </Table.Tbody>
+                  </Table>
+                  
+                  {/* Volunteer Info Modal - Outside the map loop */}
+                  <Modal p={0} opened={selectedVolunteer !== null} onClose={()=> setSelectedVolunteer(null)} centered size="lg" radius="md" padding="lg">
+                    {selectedVolunteer && (
+                      <Paper m={0} p="md" radius="md" withBorder style={{ backgroundColor: "#f8fafc" }}>
+                        <Group align="center" mb="md" spacing="lg">
+                          <Avatar size={64} radius="xl" color="blue">
+                            {selectedVolunteer.first_name?.[0]}{selectedVolunteer.last_name?.[0]}
+                          </Avatar>
+                          <div>
+                            <Title order={3} mb={2}>{selectedVolunteer.first_name} {selectedVolunteer.last_name}</Title>
+                            <Text size="sm" color="dimmed">{selectedVolunteer.email}</Text>
+                          </div>
+                        </Group>
+                        <Grid gutter="md" mb="md">
+                          <Grid.Col span={6}>
+                            <Text size="sm" fw={500}><b>Phone:</b> {selectedVolunteer.phone_number}</Text>
+                            <Text size="sm" fw={500}><b>Zip:</b> {selectedVolunteer.zipcode}</Text>
+                            <Text size="sm" fw={500}><b>Date of Birth:</b> {selectedVolunteer.date_of_birth}</Text>
+                          </Grid.Col>
+                          <Grid.Col span={6}>
+                            <Text size="sm" fw={500}><b>Availability:</b> {selectedVolunteer.availability}</Text>
+                            <Text size="sm" fw={500}><b>Roles:</b> {selectedVolunteer.roles}</Text>
+                            <Text size="sm" fw={500}><b>Verified:</b> {selectedVolunteer.verified ? 'Yes' : 'No'}</Text>
+                          </Grid.Col>
+                          
+                        </Grid>
+                        <Paper p="sm" radius="md" withBorder bg="gray.0">
+                          <Title order={5} mb={4} color="blue">Emergency Contact</Title>
+                          <Text size="sm" fw={500}><b>Name:</b> {selectedVolunteer.emergency_name}</Text>
+                          <Text size="sm" fw={500}><b>Phone:</b> {selectedVolunteer.emergency_number}</Text>
                         </Paper>
-                    </Modal>
-                    <Table.Td>{volunteer.first_name} {volunteer.last_name}</Table.Td>
-                    <Table.Td>{volunteer.email}</Table.Td>
-                    <Table.Td><Button variant="light" color="gray" radius="xl" onClick={()=> setVolunteerInfo(true)}><IconInfoCircle size={20} /></Button></Table.Td>
-                  </Table.Tr>
-                  ))
-                  )}
-                  </Table.Tbody>
-                </Table>
+                        <Group mt="md">
+                          <Button color='blue' onClick={(e) => window.location.href = `mailto:${selectedVolunteer.email}`}>Email</Button>
+                          <Button color='red' onClick={() => {
+                            handleDeleteVolunteer(selectedVolunteer._id);
+                            setSelectedVolunteer(null);
+                          }}>DELETE</Button>
+                        </Group>
+                      </Paper>
+                    )}
+                  </Modal>
+                </>
               )}
             </Paper>
             

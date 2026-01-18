@@ -3,8 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>The app needs access to your location to provide location-based services.</string>
-	<key>CFBundleIdentifier</key>
-	<string></string>
+	<string>We need your location to show you nearby food pantries sorted by distance.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
+	<key>UILaunchScreen</key>
+	<dict/>
 </dict>
 </plist>

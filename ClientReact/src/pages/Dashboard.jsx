@@ -330,7 +330,7 @@ import {
       name: '',
       current: 0,
       full: 0,
-      type: 'Vegetables'
+      type: 'Produce'
     })
     const [items, setItems] = useState([])
     
@@ -363,16 +363,16 @@ import {
         });
         // Fallback to default data if API fails
         setItems([
-          { name: 'Tomatoe', current: 44, full: 50, type: 'Vegetables' },
-          { name: 'Brocoli', current: 5, full: 50, type: 'Nonperishable' },
-          { name: 'Carrots', current: 30, full: 50, type: 'Vegetables' },
-          { name: 'Apples', current: 50, full: 50, type: 'Fruits' },
-          { name: 'Tuna Can', current: 12, full: 40, type: 'Nonperishable' },
-          { name: 'Chicken Breast', current: 22, full: 50, type: 'Proteins' },
-          { name: 'Bananas', current: 18, full: 50, type: 'Fruits' },
-          { name: 'Spinach', current: 35, full: 50, type: 'Vegetables' },
-          { name: 'Beans (Dry)', current: 44, full: 50, type: 'Nonperishable' },
-          { name: 'Eggs', current: 10, full: 30, type: 'Proteins' }
+          { name: 'Tomatoe', current: 44, full: 50, type: 'Produce' },
+          { name: 'Brocoli', current: 5, full: 50, type: 'Produce' },
+          { name: 'Carrots', current: 30, full: 50, type: 'Produce' },
+          { name: 'Apples', current: 50, full: 50, type: 'Produce' },
+          { name: 'Tuna Can', current: 12, full: 40, type: 'Cans' },
+          { name: 'Chicken Breast', current: 22, full: 50, type: 'Protein' },
+          { name: 'Bananas', current: 18, full: 50, type: 'Produce' },
+          { name: 'Spinach', current: 35, full: 50, type: 'Produce' },
+          { name: 'Beans (Dry)', current: 44, full: 50, type: 'Dry Goods' },
+          { name: 'Eggs', current: 10, full: 30, type: 'Protein' }
         ]);
       } finally {
         setLoading(false);
@@ -619,7 +619,7 @@ import {
           name: '',
           current: 0,
           full: 0,
-          type: 'Vegetables'
+          type: 'Produce'
         })
         
         setAddNewModal(false)
@@ -651,27 +651,30 @@ import {
         name: '',
         current: 0,
         full: 0,
-        type: 'Vegetables'
+        type: 'Produce'
       })
       setAddNewModal(false)
     }
 
   let filteredItems;
   switch (sort) {
-    case 'Fruits':
-      filteredItems = items.filter((item) => item.type === 'Fruits');
+    case 'Produce':
+      filteredItems = items.filter((item) => item.type === 'Produce');
       break;
-    case 'Vegetables':
-      filteredItems = items.filter((item) => item.type === 'Vegetables');
+    case 'Dry Goods':
+      filteredItems = items.filter((item) => item.type === 'Dry Goods');
       break;
-    case 'Proteins':
-      filteredItems = items.filter((item) => item.type === 'Proteins');
+    case 'Protein':
+      filteredItems = items.filter((item) => item.type === 'Protein');
       break;
     case 'Nonperishable':
       filteredItems = items.filter((item) => item.type === 'Nonperishable');
       break;
-    case 'Carbs(perishable)':
-      filteredItems = items.filter((item) => item.type === 'Carbs(perishable)');
+    case 'Cans':
+      filteredItems = items.filter((item) => item.type === 'Cans');
+      break;
+    case 'Other':
+      filteredItems = items.filter((item) => item.type === 'Other');
       break;
     default:
       filteredItems = items; 
@@ -719,7 +722,7 @@ import {
         <Select
           label="Filter"
           placeholder="Pick value"
-          data={['Fruits', 'Vegetables', 'Proteins', 'Nonperishable', 'Carbs(perishable)']}
+          data={['Produce', 'Dry Goods', 'Protein', 'Nonperishable', 'Cans', 'Other']}
           searchable
           clearable
           style={{width: '10rem'}}
@@ -797,7 +800,7 @@ import {
               <Select
                 label="Item Type"
                 placeholder="Select item type"
-                data={['Fruits', 'Vegetables', 'Proteins', 'Nonperishable', 'Carbs(perishable)']}
+                data={['Produce', 'Dry Goods', 'Protein', 'Nonperishable', 'Cans', 'Other']}
                 value={newItem.type}
                 onChange={(value) => setNewItem({...newItem, type: value})}
                 radius="md"
@@ -1778,11 +1781,11 @@ import {
         console.error('Error fetching inventory:', error);
         // Fallback to default data if API fails
         setInventory([
-          { name: 'Tomatoes', current: 44, full: 50, type: 'Vegetables' },
-          { name: 'Broccoli', current: 5, full: 50, type: 'Nonperishable' },
-          { name: 'Carrots', current: 30, full: 50, type: 'Vegetables' },
-          { name: 'Apples', current: 50, full: 50, type: 'Fruits' },
-          { name: 'Tuna Can', current: 12, full: 40, type: 'Nonperishable' }
+          { name: 'Tomatoes', current: 44, full: 50, type: 'Produce' },
+          { name: 'Broccoli', current: 5, full: 50, type: 'Produce' },
+          { name: 'Carrots', current: 30, full: 50, type: 'Produce' },
+          { name: 'Apples', current: 50, full: 50, type: 'Produce' },
+          { name: 'Tuna Can', current: 12, full: 40, type: 'Cans' }
         ]);
       }
     };

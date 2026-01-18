@@ -26,10 +26,11 @@ struct PantryDetailView: View {
         case all = "All"
         case low = "Low Stock"
         case high = "Well Stocked"
-        case cans = "Cans"
+        case produce = "Produce"
         case dryGoods = "Dry Goods"
-        case fresh = "Fresh"
-        case frozen = "Frozen"
+        case protein = "Protein"
+        case nonperishable = "Nonperishable"
+        case cans = "Cans"
         case other = "Other"
     }
     
@@ -59,16 +60,41 @@ struct PantryDetailView: View {
             items = items.filter { $0.ratio < 0.5 }
         case .high:
             items = items.filter { $0.ratio >= 0.5 }
+        case .produce:
+            items = items.filter { 
+                $0.type.localizedCaseInsensitiveContains("produce") || 
+                $0.type.localizedCaseInsensitiveContains("fresh") ||
+                $0.type.localizedCaseInsensitiveContains("fruit") ||
+                $0.type.localizedCaseInsensitiveContains("vegetable")
+            }
+        case .dryGoods:
+            items = items.filter { 
+                $0.type.localizedCaseInsensitiveContains("dry") ||
+                $0.type.localizedCaseInsensitiveContains("pasta") ||
+                $0.type.localizedCaseInsensitiveContains("rice") ||
+                $0.type.localizedCaseInsensitiveContains("grain")
+            }
+        case .protein:
+            items = items.filter { 
+                $0.type.localizedCaseInsensitiveContains("protein") ||
+                $0.type.localizedCaseInsensitiveContains("meat") ||
+                $0.type.localizedCaseInsensitiveContains("chicken") ||
+                $0.type.localizedCaseInsensitiveContains("beef") ||
+                $0.type.localizedCaseInsensitiveContains("fish") ||
+                $0.type.localizedCaseInsensitiveContains("egg")
+            }
+        case .nonperishable:
+            items = items.filter { 
+                $0.type.localizedCaseInsensitiveContains("nonperishable") ||
+                $0.type.localizedCaseInsensitiveContains("shelf stable") ||
+                $0.type.localizedCaseInsensitiveContains("preserved")
+            }
         case .cans:
             items = items.filter { $0.type.localizedCaseInsensitiveContains("can") }
-        case .dryGoods:
-            items = items.filter { $0.type.localizedCaseInsensitiveContains("dry") }
-        case .fresh:
-            items = items.filter { $0.type.localizedCaseInsensitiveContains("fresh") }
-        case .frozen:
-            items = items.filter { $0.type.localizedCaseInsensitiveContains("frozen") }
         case .other:
-            let commonTypes = ["can", "dry", "fresh", "frozen"]
+            let commonTypes = ["produce", "fresh", "fruit", "vegetable", "dry", "pasta", "rice", "grain", 
+                             "protein", "meat", "chicken", "beef", "fish", "egg", "nonperishable", 
+                             "shelf stable", "preserved", "can"]
             items = items.filter { item in
                 !commonTypes.contains { item.type.localizedCaseInsensitiveContains($0) }
             }

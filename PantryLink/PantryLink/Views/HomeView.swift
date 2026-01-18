@@ -60,10 +60,11 @@ struct HomePageView: View {
 //                        }
                     }
                     .frame(maxWidth: isIPad ? 800 : .infinity)
-                    .padding(.bottom, 20) // Add bottom padding for tab bar
+                    .padding(.bottom, 80) // Add bottom padding for tab bar
                 }
                 .padding(1.0)
             }
+            .ignoresSafeArea(.container, edges: .bottom)
             .navigationDestination(for: String.self) { value in
                 if value == "SignUp" {
                     SignUpView(path: $path)

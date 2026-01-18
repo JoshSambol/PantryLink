@@ -21,6 +21,9 @@ class Pantry {
 struct StockPageView: View {
     @StateObject var streamViewViewModel = StreamViewViewModel()
     @State var pantries: [Pantry]?
+    @State var isLoading = true
+    @State var selectedPantry: Pantry?
+    @State var showDetailView = false
     
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
@@ -29,29 +32,59 @@ struct StockPageView: View {
     }
     
     var body: some View {
-        ZStack{
-            Rectangle()
-                .fill(.stockDarkTan)
-                .ignoresSafeArea()
-            VStack{
-                Text("Stock")
-                    .foregroundColor(.white)
-                    .bold()
-                    .font(.largeTitle)
-                ScrollView{
-                    // Use this spacing for space between stock items
-                    VStack(spacing:24){
-                        ForEach(pantries ?? []){pantry in
-                            PantryStockCard(pantry: pantry)
+        NavigationStack {
+            ZStack{
+                Rectangle()
+                    .fill(.stockDarkTan)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0){
+                    Text("Stock")
+                        .foregroundColor(.white)
+                        .bold()
+                        .font(.largeTitle)
+                        .padding(.top, 20)
+                        .padding(.bottom, 16)
+                    
+                    if isLoading {
+                        VStack(spacing: 20) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.5)
+                            Text("This may take a moment...")
+                                .foregroundColor(.white)
+                                .font(.subheadline)
+                        }
+                        .frame(maxHeight: .infinity)
+                    } else {
+                        ScrollView{
+                            // Use this spacing for space between stock items
+                            VStack(spacing:24){
+                                ForEach(pantries ?? []){pantry in
+                                    PantryStockCard(pantry: pantry, onTap: {
+                                        selectedPantry = pantry
+                                        showDetailView = true
+                                    })
+                                }
+                            }
+                            .padding(.top, 8)
+                            .padding(.bottom, 100)
+                            .frame(maxWidth: isIPad ? 700 : 340)
                         }
                     }
                 }
-                .frame(width: isIPad ? 700 : 340, height: isIPad ? 700 : 560)
+                .frame(maxWidth: isIPad ? 800 : .infinity)
             }
-            .frame(maxWidth: isIPad ? 800 : .infinity)
+            .ignoresSafeArea(.container, edges: .bottom)
+            .navigationDestination(isPresented: $showDetailView) {
+                if let pantry = selectedPantry {
+                    PantryDetailView(pantry: pantry)
+                }
+            }
         }
         .task{
             pantries = try? await streamViewViewModel.getStreams().pantries
+            isLoading = false
         }
     }
 }
@@ -60,6 +93,7 @@ struct StockPageView: View {
 struct StockView: View{
     @StateObject var streamViewViewModel = StreamViewViewModel()
     @State var pantries: [Pantry]?
+    @State var isLoading = true
     
     var body: some View {
         ZStack{
@@ -75,19 +109,33 @@ struct StockView: View{
                     .foregroundColor(.white)
                     .bold()
                     .font(.largeTitle)
-                ScrollView{
-                    // Use this spacing for space between stock items
-                    VStack(spacing:24){
-                        ForEach(pantries ?? []){pantry in
-                            PantryStockCard(pantry: pantry)
+                
+                if isLoading {
+                    VStack(spacing: 20) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                        Text("This may take a moment...")
+                            .foregroundColor(.white)
+                            .font(.subheadline)
+                    }
+                    .frame(width: 340, height: 560)
+                } else {
+                    ScrollView{
+                        // Use this spacing for space between stock items
+                        VStack(spacing:24){
+                            ForEach(pantries ?? []){pantry in
+                                PantryStockCard(pantry: pantry)
+                            }
                         }
                     }
+                    .frame(width: 340, height: 560)
                 }
-                .frame(width: 340, height: 560)
             }
         }
         .task{
             pantries = try? await streamViewViewModel.getStreams().pantries
+            isLoading = false
         }
     }
 }
@@ -95,6 +143,7 @@ struct StockView: View{
 // Helper view to display a single pantry's stock card
 struct PantryStockCard: View {
     let pantry: Pantry
+    var onTap: () -> Void = {}
     
     var topItems: [PantryItem] {
         guard let stock = pantry.stock, !stock.isEmpty else { return [] }
@@ -103,7 +152,10 @@ struct PantryStockCard: View {
     
     var body: some View {
         if !topItems.isEmpty {
-            StockItemView(pantryName: pantry.name, topItems: topItems, pantryAddress: pantry.address)
+            Button(action: onTap) {
+                StockItemView(pantryName: pantry.name, topItems: topItems, pantryAddress: pantry.address)
+            }
+            .buttonStyle(PlainButtonStyle())
         }
     }
 }

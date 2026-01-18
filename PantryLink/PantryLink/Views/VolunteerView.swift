@@ -189,7 +189,7 @@ struct VolunteerContentView: View {
                                     )
                                 )
                         }
-                        .padding(.top, 10)
+                        .padding(.top, 20)
                         
                         VStack(spacing: 8) {
                             Text("Volunteer today!")
@@ -499,12 +499,13 @@ struct VolunteerContentView: View {
                         }
                     }
                     .padding(.top, 8)
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 120)
                 }
                 .padding(.vertical, 20)
                 .frame(maxWidth: isIPad ? 800 : .infinity)
             }
         }
+        .ignoresSafeArea(.container, edges: .bottom)
         .alert("Error", isPresented: $show_alert) {
             Button("OK", role: .cancel) { }
         } message: {

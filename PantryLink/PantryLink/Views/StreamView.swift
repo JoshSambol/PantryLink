@@ -55,6 +55,7 @@ struct StreamView: View {
     
     @StateObject var streamViewViewModel = StreamViewViewModel()
     @State var pantries: [Pantry]?
+    @State var isLoading = true
     
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
@@ -87,38 +88,60 @@ struct StreamView: View {
                 .fill(.stockDarkTan)
                 .frame(width: isIPad ? 600 : 350, height: isIPad ? 800 : 700)
                 .shadow(radius: 10)
-            ScrollView{
-                VStack(spacing: 10){
+            
+            if isLoading {
+                VStack(spacing: 20) {
                     Text("Stream")
                         .bold()
                         .foregroundColor(.white)
                         .font(.title)
+                        .padding(.bottom, 20)
                     
-                    if pantries != nil {
-                        if sortedAlerts.isEmpty {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.5)
+                    
+                    Text("This may take a moment...")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                }
+            } else {
+                ScrollView{
+                    VStack(spacing: 10){
+                        Text("Stream")
+                            .bold()
+                            .foregroundColor(.white)
+                            .font(.title)
+                        
+                        if pantries != nil {
+                            if sortedAlerts.isEmpty {
+                                Text("No alerts at the moment. Please come back at a later time!")
+                                    .foregroundColor(.white)
+                                    .padding(.top, 20)
+                            } else {
+                                ForEach(sortedAlerts) { alertWithPantry in
+                                    PantryAlertView(
+                                        pantryName: alertWithPantry.pantryName,
+                                        message: alertWithPantry.alert.message,
+                                        date: alertWithPantry.alert.date
+                                    )
+                                }
+                            }
+                        } else {
                             Text("No alerts at the moment. Please come back at a later time!")
                                 .foregroundColor(.white)
-                        } else {
-                            ForEach(sortedAlerts) { alertWithPantry in
-                                PantryAlertView(
-                                    pantryName: alertWithPantry.pantryName,
-                                    message: alertWithPantry.alert.message,
-                                    date: alertWithPantry.alert.date
-                                )
-                            }
+                                .padding(.top, 20)
                         }
-                    } else {
-                        Text("No alerts at the moment. Please come back at a later time!")
-                            .foregroundColor(.white)
                     }
+                    .padding()
+                    .frame(width: isIPad ? 575 : 325)
                 }
-                .padding()
-                .frame(width: isIPad ? 575 : 325)
+                .frame(width: isIPad ? 575 : 325, height: isIPad ? 775 : 675)
             }
-            .frame(width: isIPad ? 575 : 325, height: isIPad ? 775 : 675)
         }.task{
             // If request succeeds we get pantries otherwise we get nil and error is ignored
             pantries = try? await streamViewViewModel.getStreams().pantries
+            isLoading = false
         }
     }
     

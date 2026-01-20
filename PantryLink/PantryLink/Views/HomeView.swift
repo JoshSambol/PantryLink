@@ -30,14 +30,16 @@ struct HomePageView: View {
                         HStack{
                             Spacer()
                             Spacer()
+                            Spacer()
                             Text("PantryLink")
                                 .font(.title)
                                 .bold()
                             Spacer()
                             NavigationLink{AccountView(path: $path)} label:{Image(systemName: "person.crop.circle")}
                                 .padding()
-                                .scaleEffect(2)
+                                .scaleEffect(1.7)
                                 .foregroundStyle(.black)
+                            Spacer()
                     }
                         
                         LocalPantryView()
@@ -58,10 +60,11 @@ struct HomePageView: View {
 //                        }
                     }
                     .frame(maxWidth: isIPad ? 800 : .infinity)
-                    .padding(.bottom, 20) // Add bottom padding for tab bar
+                    .padding(.bottom, 80) // Add bottom padding for tab bar
                 }
                 .padding(1.0)
             }
+            .ignoresSafeArea(.container, edges: .bottom)
             .navigationDestination(for: String.self) { value in
                 if value == "SignUp" {
                     SignUpView(path: $path)

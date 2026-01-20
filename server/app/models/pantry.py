@@ -212,7 +212,7 @@ class pantry_model:
                         "address":1,
                         "email":1,
                         "phone_number":1,
-                        "stock":{"$slice":["$stock", 3]}, #only get the top 3 ratio items
+                        "stock":1, #return all stock items (removed slice limitation)
                         "stream":1,
                     }
                 }

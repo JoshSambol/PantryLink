@@ -56,6 +56,19 @@ struct StockItemView: View {
                         makeItemCard(item: item)
                     }
                 }
+                
+                // View Details indicator
+                HStack {
+                    Spacer()
+                    Text("Tap to view all items")
+                        .font(.caption)
+                        .foregroundColor(Colors.flexibleOrange)
+                        .fontWeight(.semibold)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(Colors.flexibleOrange)
+                }
+                .padding(.top, 4)
             }
             .padding()
         }

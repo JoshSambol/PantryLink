@@ -330,7 +330,7 @@ import {
       name: '',
       current: 0,
       full: 0,
-      type: 'Vegetables'
+      type: 'Produce'
     })
     const [items, setItems] = useState([])
     
@@ -363,16 +363,16 @@ import {
         });
         // Fallback to default data if API fails
         setItems([
-          { name: 'Tomatoe', current: 44, full: 50, type: 'Vegetables' },
-          { name: 'Brocoli', current: 5, full: 50, type: 'Nonperishable' },
-          { name: 'Carrots', current: 30, full: 50, type: 'Vegetables' },
-          { name: 'Apples', current: 50, full: 50, type: 'Fruits' },
-          { name: 'Tuna Can', current: 12, full: 40, type: 'Nonperishable' },
-          { name: 'Chicken Breast', current: 22, full: 50, type: 'Proteins' },
-          { name: 'Bananas', current: 18, full: 50, type: 'Fruits' },
-          { name: 'Spinach', current: 35, full: 50, type: 'Vegetables' },
-          { name: 'Beans (Dry)', current: 44, full: 50, type: 'Nonperishable' },
-          { name: 'Eggs', current: 10, full: 30, type: 'Proteins' }
+          { name: 'Tomatoe', current: 44, full: 50, type: 'Produce' },
+          { name: 'Brocoli', current: 5, full: 50, type: 'Produce' },
+          { name: 'Carrots', current: 30, full: 50, type: 'Produce' },
+          { name: 'Apples', current: 50, full: 50, type: 'Produce' },
+          { name: 'Tuna Can', current: 12, full: 40, type: 'Cans' },
+          { name: 'Chicken Breast', current: 22, full: 50, type: 'Protein' },
+          { name: 'Bananas', current: 18, full: 50, type: 'Produce' },
+          { name: 'Spinach', current: 35, full: 50, type: 'Produce' },
+          { name: 'Beans (Dry)', current: 44, full: 50, type: 'Dry Goods' },
+          { name: 'Eggs', current: 10, full: 30, type: 'Protein' }
         ]);
       } finally {
         setLoading(false);
@@ -619,7 +619,7 @@ import {
           name: '',
           current: 0,
           full: 0,
-          type: 'Vegetables'
+          type: 'Produce'
         })
         
         setAddNewModal(false)
@@ -651,27 +651,30 @@ import {
         name: '',
         current: 0,
         full: 0,
-        type: 'Vegetables'
+        type: 'Produce'
       })
       setAddNewModal(false)
     }
 
   let filteredItems;
   switch (sort) {
-    case 'Fruits':
-      filteredItems = items.filter((item) => item.type === 'Fruits');
+    case 'Produce':
+      filteredItems = items.filter((item) => item.type === 'Produce');
       break;
-    case 'Vegetables':
-      filteredItems = items.filter((item) => item.type === 'Vegetables');
+    case 'Dry Goods':
+      filteredItems = items.filter((item) => item.type === 'Dry Goods');
       break;
-    case 'Proteins':
-      filteredItems = items.filter((item) => item.type === 'Proteins');
+    case 'Protein':
+      filteredItems = items.filter((item) => item.type === 'Protein');
       break;
     case 'Nonperishable':
       filteredItems = items.filter((item) => item.type === 'Nonperishable');
       break;
-    case 'Carbs(perishable)':
-      filteredItems = items.filter((item) => item.type === 'Carbs(perishable)');
+    case 'Cans':
+      filteredItems = items.filter((item) => item.type === 'Cans');
+      break;
+    case 'Other':
+      filteredItems = items.filter((item) => item.type === 'Other');
       break;
     default:
       filteredItems = items; 
@@ -719,7 +722,7 @@ import {
         <Select
           label="Filter"
           placeholder="Pick value"
-          data={['Fruits', 'Vegetables', 'Proteins', 'Nonperishable', 'Carbs(perishable)']}
+          data={['Produce', 'Dry Goods', 'Protein', 'Nonperishable', 'Cans', 'Other']}
           searchable
           clearable
           style={{width: '10rem'}}
@@ -797,7 +800,7 @@ import {
               <Select
                 label="Item Type"
                 placeholder="Select item type"
-                data={['Fruits', 'Vegetables', 'Proteins', 'Nonperishable', 'Carbs(perishable)']}
+                data={['Produce', 'Dry Goods', 'Protein', 'Nonperishable', 'Cans', 'Other']}
                 value={newItem.type}
                 onChange={(value) => setNewItem({...newItem, type: value})}
                 radius="md"
@@ -920,7 +923,7 @@ import {
   }
   const Volunteer = ({ onScheduleUpdate, foodBankName })=> {
 
-    const [volunteerInfo, setVolunteerInfo] = useState(false)
+    const [selectedVolunteer, setSelectedVolunteer] = useState(null)
     const [inboxInfo, setInboxInfo] = useState(false)
     const [volunteers, setVolunteers] = useState([])
     const [inboxVolunteers, setInboxVolunteers] = useState([])
@@ -1304,70 +1307,78 @@ import {
                   <Text ml="md">Loading volunteers...</Text>
                 </Center>
               ) : (
-                <Table>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Name</Table.Th>
-                      <Table.Th>Email</Table.Th>
-                      <Table.Th>Actions</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {volunteers.length === 0 ? (
+                <>
+                  <Table>
+                    <Table.Thead>
                       <Table.Tr>
-                        <Table.Td colSpan={3}>
-                          <Center p="md">
-                            <Text color="dimmed">No verified volunteers found</Text>
-                          </Center>
-                        </Table.Td>
+                        <Table.Th>Name</Table.Th>
+                        <Table.Th>Email</Table.Th>
+                        <Table.Th>Actions</Table.Th>
                       </Table.Tr>
-                    ) : (
-                      volunteers.map((volunteer, idx)=> (
-                    <Table.Tr key={volunteer._id}>
-                    <Modal p={0} opened={volunteerInfo} onClose={()=> setVolunteerInfo(false)} centered size="lg" radius="md" padding="lg">
-                      
-                        <Paper m={0} p="md" radius="md" withBorder style={{ backgroundColor: "#f8fafc" }}>
-                          <Group align="center" mb="md" spacing="lg">
-                            <Avatar size={64} radius="xl" color="blue">
-                              {volunteer.first_name?.[0]}{volunteer.last_name?.[0]}
-                            </Avatar>
-                            <div>
-                              <Title order={3} mb={2}>{volunteer.first_name} {volunteer.last_name}</Title>
-                              <Text size="sm" color="dimmed">{volunteer.email}</Text>
-                            </div>
-                          </Group>
-                          <Grid gutter="md" mb="md">
-                            <Grid.Col span={6}>
-                              <Text size="sm" fw={500}><b>Phone:</b> {volunteer.phone_number}</Text>
-                              <Text size="sm" fw={500}><b>Zip:</b> {volunteer.zipcode}</Text>
-                              <Text size="sm" fw={500}><b>Date of Birth:</b> {volunteer.date_of_birth}</Text>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                              <Text size="sm" fw={500}><b>Availability:</b> {volunteer.availability}</Text>
-                              <Text size="sm" fw={500}><b>Roles:</b> {volunteer.roles}</Text>
-                              <Text size="sm" fw={500}><b>Verified:</b> {volunteer.verified ? 'Yes' : 'No'}</Text>
-                            </Grid.Col>
-                            
-                          </Grid>
-                          <Paper p="sm" radius="md" withBorder bg="gray.0">
-                            <Title order={5} mb={4} color="blue">Emergency Contact</Title>
-                            <Text size="sm" fw={500}><b>Name:</b> {volunteer.emergency_name}</Text>
-                            <Text size="sm" fw={500}><b>Phone:</b> {volunteer.emergency_number}</Text>
-                          </Paper>
-                          <Group mt="md">
-                            <Button color='blue' onClick={(e) => window.location.href = `mailto:${volunteer.email}`}>Email</Button>
-                            <Button color='red' onClick={() => handleDeleteVolunteer(volunteer._id)}>DELETE</Button>
-                          </Group>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {volunteers.length === 0 ? (
+                        <Table.Tr>
+                          <Table.Td colSpan={3}>
+                            <Center p="md">
+                              <Text color="dimmed">No verified volunteers found</Text>
+                            </Center>
+                          </Table.Td>
+                        </Table.Tr>
+                      ) : (
+                        volunteers.map((volunteer, idx)=> (
+                      <Table.Tr key={volunteer._id}>
+                      <Table.Td>{volunteer.first_name} {volunteer.last_name}</Table.Td>
+                      <Table.Td>{volunteer.email}</Table.Td>
+                      <Table.Td><Button variant="light" color="gray" radius="xl" onClick={()=> setSelectedVolunteer(volunteer)}><IconInfoCircle size={20} /></Button></Table.Td>
+                    </Table.Tr>
+                    ))
+                    )}
+                    </Table.Tbody>
+                  </Table>
+                  
+                  {/* Volunteer Info Modal - Outside the map loop */}
+                  <Modal p={0} opened={selectedVolunteer !== null} onClose={()=> setSelectedVolunteer(null)} centered size="lg" radius="md" padding="lg">
+                    {selectedVolunteer && (
+                      <Paper m={0} p="md" radius="md" withBorder style={{ backgroundColor: "#f8fafc" }}>
+                        <Group align="center" mb="md" spacing="lg">
+                          <Avatar size={64} radius="xl" color="blue">
+                            {selectedVolunteer.first_name?.[0]}{selectedVolunteer.last_name?.[0]}
+                          </Avatar>
+                          <div>
+                            <Title order={3} mb={2}>{selectedVolunteer.first_name} {selectedVolunteer.last_name}</Title>
+                            <Text size="sm" color="dimmed">{selectedVolunteer.email}</Text>
+                          </div>
+                        </Group>
+                        <Grid gutter="md" mb="md">
+                          <Grid.Col span={6}>
+                            <Text size="sm" fw={500}><b>Phone:</b> {selectedVolunteer.phone_number}</Text>
+                            <Text size="sm" fw={500}><b>Zip:</b> {selectedVolunteer.zipcode}</Text>
+                            <Text size="sm" fw={500}><b>Date of Birth:</b> {selectedVolunteer.date_of_birth}</Text>
+                          </Grid.Col>
+                          <Grid.Col span={6}>
+                            <Text size="sm" fw={500}><b>Availability:</b> {selectedVolunteer.availability}</Text>
+                            <Text size="sm" fw={500}><b>Roles:</b> {selectedVolunteer.roles}</Text>
+                            <Text size="sm" fw={500}><b>Verified:</b> {selectedVolunteer.verified ? 'Yes' : 'No'}</Text>
+                          </Grid.Col>
+                          
+                        </Grid>
+                        <Paper p="sm" radius="md" withBorder bg="gray.0">
+                          <Title order={5} mb={4} color="blue">Emergency Contact</Title>
+                          <Text size="sm" fw={500}><b>Name:</b> {selectedVolunteer.emergency_name}</Text>
+                          <Text size="sm" fw={500}><b>Phone:</b> {selectedVolunteer.emergency_number}</Text>
                         </Paper>
-                    </Modal>
-                    <Table.Td>{volunteer.first_name} {volunteer.last_name}</Table.Td>
-                    <Table.Td>{volunteer.email}</Table.Td>
-                    <Table.Td><Button variant="light" color="gray" radius="xl" onClick={()=> setVolunteerInfo(true)}><IconInfoCircle size={20} /></Button></Table.Td>
-                  </Table.Tr>
-                  ))
-                  )}
-                  </Table.Tbody>
-                </Table>
+                        <Group mt="md">
+                          <Button color='blue' onClick={(e) => window.location.href = `mailto:${selectedVolunteer.email}`}>Email</Button>
+                          <Button color='red' onClick={() => {
+                            handleDeleteVolunteer(selectedVolunteer._id);
+                            setSelectedVolunteer(null);
+                          }}>DELETE</Button>
+                        </Group>
+                      </Paper>
+                    )}
+                  </Modal>
+                </>
               )}
             </Paper>
             
@@ -1778,11 +1789,11 @@ import {
         console.error('Error fetching inventory:', error);
         // Fallback to default data if API fails
         setInventory([
-          { name: 'Tomatoes', current: 44, full: 50, type: 'Vegetables' },
-          { name: 'Broccoli', current: 5, full: 50, type: 'Nonperishable' },
-          { name: 'Carrots', current: 30, full: 50, type: 'Vegetables' },
-          { name: 'Apples', current: 50, full: 50, type: 'Fruits' },
-          { name: 'Tuna Can', current: 12, full: 40, type: 'Nonperishable' }
+          { name: 'Tomatoes', current: 44, full: 50, type: 'Produce' },
+          { name: 'Broccoli', current: 5, full: 50, type: 'Produce' },
+          { name: 'Carrots', current: 30, full: 50, type: 'Produce' },
+          { name: 'Apples', current: 50, full: 50, type: 'Produce' },
+          { name: 'Tuna Can', current: 12, full: 40, type: 'Cans' }
         ]);
       }
     };

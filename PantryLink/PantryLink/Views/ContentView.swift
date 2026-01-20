@@ -37,10 +37,14 @@ struct ContentView: View {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     //gives access to appdelegate here
     
-    //Location Authentication 
-    @StateObject private var locationManager = LocationManager()
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("isGuest") private var isGuest = false
+    
+    // Initialize LocationManager singleton immediately to request permission
+    init() {
+        // Access the singleton to trigger init and permission request
+        _ = LocationManager.shared
+    }
     
     var body: some View {
         ZStack {
@@ -52,7 +56,6 @@ struct ContentView: View {
                 // Show main tab view when authenticated
                 MainTabView()
                     .onAppear {
-                        locationManager.checkLocationAuthorization()
                         appDelegate.app = self
                     }
             } else {
@@ -60,7 +63,6 @@ struct ContentView: View {
                 NavigationStack(path: $path) {
                     SignInView(path: $path, isLoggedIn: $isLoggedIn, isGuest: $isGuest)
                         .onAppear(perform: {
-                            locationManager.checkLocationAuthorization()
                             appDelegate.app = self
                         })
                         .navigationDestination(for: String.self) { value in

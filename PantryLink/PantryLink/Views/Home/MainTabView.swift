@@ -58,9 +58,9 @@ struct MainTabView: View {
                 }
                 .tag(1)
             
-            VolunteerPageView(path: $path)
+            ServePageView(path: $path)
                 .tabItem {
-                    Label("Volunteer", systemImage: "hand.raised.fill")
+                    Label("Serve", systemImage: "hand.raised.fill")
                 }
                 .tag(2)
         }

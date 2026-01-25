@@ -41,7 +41,7 @@ struct HomePageView: View {
                                 .foregroundStyle(.black)
                             Spacer()
                     }
-                        
+                      
                         LocalPantryView()
                             .padding()
                         StreamView()

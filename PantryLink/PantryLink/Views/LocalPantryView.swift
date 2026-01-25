@@ -25,15 +25,13 @@ struct LocalPantryView: View {
             Rectangle()
                 .fill(Colors.flexibleWhite)
                 .ignoresSafeArea()
-            RoundedRectangle(cornerRadius: 25)
-                .fill(.stockDarkTan)
-                .frame(width: isIPad ? 600 : 350, height: isIPad ? 600 : 470)
-                .shadow(radius: 10)
+            
             VStack{
                 Text("Local Pantries")
                     .bold()
                     .foregroundColor(.white)
                     .font(.title)
+                    .padding(.top, 20)
                 
                 // Show loading or location status
                 if !location.locationReady {
@@ -58,7 +56,7 @@ struct LocalPantryView: View {
                                 .padding(.horizontal, 20)
                         }
                     }
-                    .frame(height: isIPad ? 485 : 355)
+                    .padding(.vertical, 40)
                 } else if location.isLoadingPantries {
                     VStack(spacing: 20) {
                         ProgressView()
@@ -68,7 +66,7 @@ struct LocalPantryView: View {
                             .foregroundColor(.white)
                             .font(.subheadline)
                     }
-                    .frame(height: isIPad ? 485 : 355)
+                    .padding(.vertical, 40)
                 } else if location.allPantries.isEmpty {
                     VStack(spacing: 20) {
                         Image(systemName: "exclamationmark.triangle")
@@ -88,7 +86,7 @@ struct LocalPantryView: View {
                                 .cornerRadius(10)
                         }
                     }
-                    .frame(height: isIPad ? 485 : 355)
+                    .padding(.vertical, 40)
                 } else {
                     // Display all pantries (sorted by distance, max 20)
                     TabView{
@@ -162,8 +160,20 @@ struct LocalPantryView: View {
                     }
                     .tabViewStyle(.page(indexDisplayMode: .automatic))
                     .frame(height: isIPad ? 485 : 395)
+                    .padding(.vertical, 10)
+                    
+                    SearchView()
+                        .padding(.vertical, 10)
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            .frame(width: isIPad ? 600 : 350)
+            .background(
+                RoundedRectangle(cornerRadius: 25)
+                    .fill(.stockDarkTan)
+                    .shadow(radius: 10)
+            )
         }
         .onAppear{
             location.checkLocationAuthorization()

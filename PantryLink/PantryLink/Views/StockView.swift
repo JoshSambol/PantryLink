@@ -45,7 +45,8 @@ struct StockPageView: View {
                         .font(.largeTitle)
                         .padding(.top, 20)
                         .padding(.bottom, 16)
-                    
+                    SearchView()
+                        .padding()
                     if isLoading {
                         VStack(spacing: 20) {
                             ProgressView()
@@ -57,6 +58,7 @@ struct StockPageView: View {
                         }
                         .frame(maxHeight: .infinity)
                     } else {
+                        
                         ScrollView{
                             // Use this spacing for space between stock items
                             VStack(spacing:24){

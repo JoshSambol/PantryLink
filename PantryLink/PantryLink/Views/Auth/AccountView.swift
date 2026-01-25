@@ -16,8 +16,7 @@ struct AccountView: View {
     @AppStorage("isGuest") private var isGuest = false
     @ObservedObject private var userManager = UserManager.shared
     var body: some View {
-        NavigationStack(path: $path){
-            ScrollView(){
+        ScrollView(){
                 
                 if isGuest == true{
                     VStack(){
@@ -180,7 +179,6 @@ struct AccountView: View {
                     }
                 }
             }
-        }
     }
 }
 

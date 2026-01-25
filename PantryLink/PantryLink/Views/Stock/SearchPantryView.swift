@@ -6,14 +6,19 @@
 //
 
 import SwiftUI
+import MapKit
 
 struct SearchPantryView: View {
     @StateObject private var viewModel = StreamViewViewModel()
+    @ObservedObject var locationManager = LocationManager.shared
     @State private var searchText = ""
-    @State private var allPantries: [Pantry] = []
+    @State private var pantryLinkPantries: [Pantry] = [] // Pantries with stock from API
+    @State private var googleSheetPantries: [MKMapItem] = [] // Pantries from Google Sheets only
     @State private var isLoading = true
     @State private var selectedPantry: Pantry?
+    @State private var selectedMapItem: MKMapItem?
     @State private var showDetailView = false
+    @State private var showMapItemPopup = false
     
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
@@ -21,15 +26,15 @@ struct SearchPantryView: View {
         horizontalSizeClass == .regular
     }
     
-    // Filter pantries based on search text
-    var filteredPantries: [Pantry] {
+    // Filter PantryLink pantries based on search text
+    var filteredPantryLinkPantries: [Pantry] {
         if searchText.isEmpty {
-            return allPantries
+            return pantryLinkPantries
         }
         
         let lowercasedSearch = searchText.lowercased()
         
-        return allPantries.filter { pantry in
+        return pantryLinkPantries.filter { pantry in
             // Search by pantry name
             let nameMatch = pantry.name.lowercased().contains(lowercasedSearch)
             
@@ -46,6 +51,31 @@ struct SearchPantryView: View {
             } ?? false
             
             return nameMatch || addressMatch || zipMatch || itemMatch
+        }
+    }
+    
+    // Filter Google Sheet pantries based on search text (no item search)
+    var filteredGoogleSheetPantries: [MKMapItem] {
+        if searchText.isEmpty {
+            return googleSheetPantries
+        }
+        
+        let lowercasedSearch = searchText.lowercased()
+        
+        return googleSheetPantries.filter { mapItem in
+            // Search by pantry name
+            let nameMatch = mapItem.name?.lowercased().contains(lowercasedSearch) ?? false
+            
+            // Search by city
+            let cityMatch = mapItem.placemark.locality?.lowercased().contains(lowercasedSearch) ?? false
+            
+            // Search by state
+            let stateMatch = mapItem.placemark.administrativeArea?.lowercased().contains(lowercasedSearch) ?? false
+            
+            // Search by zip code
+            let zipMatch = mapItem.placemark.postalCode?.contains(searchText) ?? false
+            
+            return nameMatch || cityMatch || stateMatch || zipMatch
         }
     }
     
@@ -117,7 +147,7 @@ struct SearchPantryView: View {
                                 .font(.subheadline)
                         }
                         .frame(maxHeight: .infinity)
-                    } else if filteredPantries.isEmpty {
+                    } else if filteredPantryLinkPantries.isEmpty && filteredGoogleSheetPantries.isEmpty {
                         VStack(spacing: 20) {
                             Image(systemName: searchText.isEmpty ? "building.2" : "magnifyingglass")
                                 .font(.system(size: 50))
@@ -141,20 +171,52 @@ struct SearchPantryView: View {
                             VStack(spacing: 24) {
                                 // Show count of results
                                 if !searchText.isEmpty {
-                                    Text("\(filteredPantries.count) result\(filteredPantries.count == 1 ? "" : "s") found")
+                                    let totalResults = filteredPantryLinkPantries.count + filteredGoogleSheetPantries.count
+                                    Text("\(totalResults) result\(totalResults == 1 ? "" : "s") found")
                                         .foregroundColor(.white)
                                         .font(.subheadline)
                                         .padding(.top, 8)
                                 }
                                 
-                                ForEach(filteredPantries) { pantry in
-                                    PantrySearchCard(
-                                        pantry: pantry,
-                                        searchText: searchText,
-                                        matchingItems: getMatchingItems(for: pantry)
-                                    ) {
-                                        selectedPantry = pantry
-                                        showDetailView = true
+                                // PantryLink Pantries Section
+                                if !filteredPantryLinkPantries.isEmpty {
+                                    VStack(alignment: .leading, spacing: 16) {
+                                        Text("PantryLink Pantries")
+                                            .font(.title2)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 20)
+                                            .padding(.top, 8)
+                                        
+                                        ForEach(filteredPantryLinkPantries) { pantry in
+                                            PantrySearchCard(
+                                                pantry: pantry,
+                                                searchText: searchText,
+                                                matchingItems: getMatchingItems(for: pantry)
+                                            ) {
+                                                selectedPantry = pantry
+                                                showDetailView = true
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Google Sheet Pantries Section
+                                if !filteredGoogleSheetPantries.isEmpty {
+                                    VStack(alignment: .leading, spacing: 16) {
+                                        Text("Pantries not on PantryLink yet")
+                                            .font(.title2)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 20)
+                                            .padding(.top, filteredPantryLinkPantries.isEmpty ? 8 : 24)
+                                        
+                                        ForEach(Array(filteredGoogleSheetPantries.enumerated()), id: \.offset) { index, mapItem in
+                                            BasicPantryCard(mapItem: mapItem) {
+                                                selectedMapItem = mapItem
+                                                showMapItemPopup = true
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -172,17 +234,39 @@ struct SearchPantryView: View {
                     PantryDetailView(pantry: pantry)
                 }
             }
+            .sheet(isPresented: $showMapItemPopup) {
+                if let mapItem = selectedMapItem {
+                    BasicPantryPopUpView(mapItem: mapItem)
+                        .presentationDetents([.medium, .large])
+                }
+            }
         }
         .task {
             await loadPantries()
         }
     }
     
-    // Load pantries from API
+    // Load pantries from both API and Google Sheets
     private func loadPantries() async {
         do {
+            // Load PantryLink pantries from API
             let response = try await viewModel.getStreams()
-            allPantries = response.pantries
+            pantryLinkPantries = response.pantries
+            
+            // Get Google Sheet pantries from LocationManager
+            let allGooglePantries = locationManager.knownNJPantries
+            
+            // Filter out pantries that are already on PantryLink
+            // Compare by name (case-insensitive)
+            let pantryLinkNames = Set(pantryLinkPantries.map { $0.name.lowercased() })
+            googleSheetPantries = allGooglePantries.filter { mapItem in
+                guard let name = mapItem.name else { return false }
+                return !pantryLinkNames.contains(name.lowercased())
+            }
+            
+            print("✅ Loaded \(pantryLinkPantries.count) PantryLink pantries")
+            print("✅ Loaded \(googleSheetPantries.count) Google Sheet pantries not on PantryLink")
+            
             isLoading = false
         } catch {
             print("Error loading pantries: \(error.localizedDescription)")
@@ -290,6 +374,256 @@ struct PantrySearchCard: View {
                 .padding(.vertical, 6)
             }
             .buttonStyle(PlainButtonStyle())
+        }
+    }
+}
+
+// Basic card for Google Sheet pantries (not on PantryLink yet)
+struct BasicPantryCard: View {
+    let mapItem: MKMapItem
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 30)
+                    .fill(Colors.flexibleWhite)
+                    .shadow(radius: 10)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(mapItem.name ?? "Unknown Pantry")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(Colors.flexibleBlack)
+                            
+                            if let city = mapItem.placemark.locality,
+                               let state = mapItem.placemark.administrativeArea {
+                                Text("\(city), \(state)")
+                                    .font(.subheadline)
+                                    .foregroundColor(Colors.flexibleDarkGray)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // Directions button
+                        Button(action: {
+                            openInMaps(mapItem: mapItem)
+                        }) {
+                            HStack(spacing: 4) {
+                                Text("Directions")
+                                    .font(.caption)
+                                Image(systemName: "arrow.triangle.turn.up.right.diamond")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Colors.flexibleDarkGray.opacity(0.15))
+                            .cornerRadius(6)
+                            .foregroundColor(Colors.flexibleBlack)
+                        }
+                    }
+                    
+                    // Address
+                    if let street = mapItem.placemark.thoroughfare,
+                       let zip = mapItem.placemark.postalCode {
+                        HStack(spacing: 4) {
+                            Image(systemName: "location.fill")
+                                .font(.caption)
+                                .foregroundColor(Colors.flexibleDarkGray)
+                            Text(street)
+                                .font(.caption)
+                                .foregroundColor(Colors.flexibleDarkGray)
+                        }
+                    }
+                    
+                    // Phone
+                    if let phone = mapItem.phoneNumber {
+                        HStack(spacing: 4) {
+                            Image(systemName: "phone.fill")
+                                .font(.caption)
+                                .foregroundColor(Colors.flexibleDarkGray)
+                            Text(phone)
+                                .font(.caption)
+                                .foregroundColor(Colors.flexibleDarkGray)
+                        }
+                    }
+                    
+                    // Website
+                    if let url = mapItem.url {
+                        HStack(spacing: 4) {
+                            Image(systemName: "globe")
+                                .font(.caption)
+                                .foregroundColor(Colors.flexibleBlue)
+                            Text(url.absoluteString)
+                                .font(.caption)
+                                .foregroundColor(Colors.flexibleBlue)
+                                .lineLimit(1)
+                        }
+                    }
+                    
+                    // Info indicator
+                    HStack {
+                        Spacer()
+                        Text("Tap for more info")
+                            .font(.caption)
+                            .foregroundColor(Colors.flexibleOrange)
+                            .fontWeight(.semibold)
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(Colors.flexibleOrange)
+                    }
+                }
+                .padding()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    func openInMaps(mapItem: MKMapItem) {
+        mapItem.openInMaps(launchOptions: [
+            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+        ])
+    }
+}
+
+// Popup view for basic pantry information
+struct BasicPantryPopUpView: View {
+    let mapItem: MKMapItem
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Name
+                    Text(mapItem.name ?? "Unknown Pantry")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(Colors.flexibleBlack)
+                    
+                    // Address Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Address", systemImage: "location.fill")
+                            .font(.headline)
+                            .foregroundColor(Colors.flexibleBlack)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let street = mapItem.placemark.thoroughfare {
+                                Text(street)
+                                    .foregroundColor(Colors.flexibleDarkGray)
+                            }
+                            if let city = mapItem.placemark.locality,
+                               let state = mapItem.placemark.administrativeArea,
+                               let zip = mapItem.placemark.postalCode {
+                                Text("\(city), \(state) \(zip)")
+                                    .foregroundColor(Colors.flexibleDarkGray)
+                            }
+                        }
+                        
+                        Button(action: {
+                            mapItem.openInMaps(launchOptions: [
+                                MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+                            ])
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.triangle.turn.up.right.diamond")
+                                Text("Get Directions")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Colors.flexibleBlue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                    }
+                    .padding()
+                    .background(Colors.flexibleLightGray.opacity(0.3))
+                    .cornerRadius(12)
+                    
+                    // Phone Section
+                    if let phone = mapItem.phoneNumber {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Phone", systemImage: "phone.fill")
+                                .font(.headline)
+                                .foregroundColor(Colors.flexibleBlack)
+                            
+                            if let phoneURL = URL(string: "tel://\(phone.replacingOccurrences(of: " ", with: ""))") {
+                                Link(destination: phoneURL) {
+                                    HStack {
+                                        Text(phone)
+                                            .foregroundColor(Colors.flexibleBlue)
+                                        Spacer()
+                                        Image(systemName: "phone.circle.fill")
+                                            .foregroundColor(Colors.flexibleBlue)
+                                    }
+                                }
+                            } else {
+                                Text(phone)
+                                    .foregroundColor(Colors.flexibleDarkGray)
+                            }
+                        }
+                        .padding()
+                        .background(Colors.flexibleLightGray.opacity(0.3))
+                        .cornerRadius(12)
+                    }
+                    
+                    // Website Section
+                    if let url = mapItem.url {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Website", systemImage: "globe")
+                                .font(.headline)
+                                .foregroundColor(Colors.flexibleBlack)
+                            
+                            Link(destination: url) {
+                                HStack {
+                                    Text(url.absoluteString)
+                                        .foregroundColor(Colors.flexibleBlue)
+                                        .lineLimit(2)
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right.square")
+                                        .foregroundColor(Colors.flexibleBlue)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Colors.flexibleLightGray.opacity(0.3))
+                        .cornerRadius(12)
+                    }
+                    
+                    // Info note
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(Colors.flexibleOrange)
+                            Text("Not on PantryLink yet")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Colors.flexibleOrange)
+                        }
+                        Text("This pantry is not currently reporting stock information through PantryLink.")
+                            .font(.caption)
+                            .foregroundColor(Colors.flexibleDarkGray)
+                    }
+                    .padding()
+                    .background(Colors.flexibleOrange.opacity(0.1))
+                    .cornerRadius(12)
+                }
+                .padding()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

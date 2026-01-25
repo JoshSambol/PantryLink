@@ -16,13 +16,14 @@ def create_pantry():
         phone_number = data["phone_number"]
         password = data["password"]
         username = data.get("username", email)  # Use email as username if not provided
+        website = data.get("website")  # Optional website field
 
         # Hash the password
         bcrypt = Bcrypt(current_app)
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
         new_pantry = pantry_model(current_app.mongo)
-        response = new_pantry.create_pantry(name, address, email, phone_number, hashed_password, username)
+        response = new_pantry.create_pantry(name, address, email, phone_number, hashed_password, username, website)
 
     except Exception as e:
         return jsonify({"message": "Error creating pantry", "error": str(e)}), 400
@@ -67,6 +68,10 @@ def update_pantry(pantry_id):
             "email": data["email"],
             "phone_number": data["phone_number"],
         }
+        # Update website if provided
+        if "website" in data:
+            update_data["website"] = data["website"]
+        
         # Update password only if provided and non-empty; ensure it stays hashed
         new_password = data.get("password")
         if new_password:

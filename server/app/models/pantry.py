@@ -5,7 +5,7 @@ class pantry_model:
     def __init__(self, mongo: PyMongo):
         self.collection = mongo.cx["test"]["pantries"]
 
-    def create_pantry(self, name, address, email, phone_number, password, username=None):
+    def create_pantry(self, name, address, email, phone_number, password, username=None, website=None):
         pantry_data = {
             "name": name,
             "address": address, 
@@ -13,6 +13,7 @@ class pantry_model:
             "phone_number": phone_number,
             "password": password,
             "username": username or email,  # Use email as username if not provided
+            "website": website,
             "stream": []
         }
         result = self.collection.insert_one(pantry_data)
@@ -94,10 +95,10 @@ class pantry_model:
         return pantry.get("stock", []) if pantry else []
     
     def get_pantry_info(self, pantry_id):
-        """Get pantry information (name, address, email, phone)"""
+        """Get pantry information (name, address, email, phone, website)"""
         pantry = self.collection.find_one(
             {"_id": pantry_id},
-            {"name": 1, "address": 1, "email": 1, "phone_number": 1, "username": 1, "stream": 1, "_id": 0}
+            {"name": 1, "address": 1, "email": 1, "phone_number": 1, "website": 1, "username": 1, "stream": 1, "_id": 0}
         )
         return pantry
 
@@ -212,6 +213,7 @@ class pantry_model:
                         "address":1,
                         "email":1,
                         "phone_number":1,
+                        "website":1,
                         "stock":1, #return all stock items (removed slice limitation)
                         "stream":1,
                     }

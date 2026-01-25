@@ -13,6 +13,9 @@ struct Pantry: Codable, Identifiable {
     let stock: [PantryItem]?
     let address: String?
     let stream: [StreamAlert]?
+    let email: String?
+    let phone_number: String?
+    let website: String?
     var id: String {_id}
 }
 

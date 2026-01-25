@@ -149,13 +149,8 @@ struct LocalPantryView: View {
                     }
                     .sheet(isPresented: $showPopup){
                         if let pantry = selectedPantry {
-                            let address = formatAddress(for: pantry.placemark)
-                            LocalPantryPopUpView(
-                                pantryAddress: address,
-                                pantryNumber: pantry.phoneNumber ?? "Not available",
-                                pantryURL: pantry.url
-                            )
-                            .presentationDetents([.fraction(1/4)])
+                            BasicPantryPopUpView(mapItem: pantry)
+                                .presentationDetents([.medium, .large])
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .automatic))
@@ -207,33 +202,6 @@ struct LocalPantryView: View {
                 MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
             ])
         }
-    }
-    
-    // Format address from placemark
-    func formatAddress(for placemark: MKPlacemark) -> String {
-        var addressComponents: [String] = []
-        
-        if let street = placemark.thoroughfare {
-            if let number = placemark.subThoroughfare {
-                addressComponents.append("\(number) \(street)")
-            } else {
-                addressComponents.append(street)
-            }
-        }
-        
-        if let city = placemark.locality {
-            addressComponents.append(city)
-        }
-        
-        if let state = placemark.administrativeArea {
-            addressComponents.append(state)
-        }
-        
-        if let zip = placemark.postalCode {
-            addressComponents.append(zip)
-        }
-        
-        return addressComponents.isEmpty ? "Address not available" : addressComponents.joined(separator: ", ")
     }
     
 }

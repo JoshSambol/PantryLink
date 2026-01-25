@@ -136,6 +136,7 @@ struct VolunteerContentView: View {
     @Binding var path: NavigationPath
     
     @State private var show_success_alert = false
+    @State private var isAutoFilled = false
     
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
@@ -310,14 +311,16 @@ struct VolunteerContentView: View {
                                     label: "First Name",
                                     text: $first_name,
                                     placeholder: "Enter your first name",
-                                    isEmpty: empty_field && first_name.isEmpty
+                                    isEmpty: empty_field && first_name.isEmpty,
+                                    isDisabled: isAutoFilled
                                 )
                                 
                                 FormTextField(
                                     label: "Last Name",
                                     text: $last_name,
                                     placeholder: "Enter your last name",
-                                    isEmpty: empty_field && last_name.isEmpty
+                                    isEmpty: empty_field && last_name.isEmpty,
+                                    isDisabled: isAutoFilled
                                 )
                                 
                                 FormTextField(
@@ -332,14 +335,16 @@ struct VolunteerContentView: View {
                                     text: $email,
                                     placeholder: "your.email@example.com",
                                     isEmpty: empty_field && email.isEmpty,
-                                    keyboardType: .emailAddress
+                                    keyboardType: .emailAddress,
+                                    isDisabled: isAutoFilled
                                 )
                                 
                                 FormTextField(
                                     label: "Phone Number",
                                     text: $phone_number,
                                     placeholder: "(555) 123-4567",
-                                    isEmpty: empty_field && phone_number.isEmpty
+                                    isEmpty: empty_field && phone_number.isEmpty,
+                                    isDisabled: isAutoFilled
                                 )
                                 
                                 FormTextField(
@@ -536,6 +541,8 @@ struct VolunteerContentView: View {
                 if phone_number.isEmpty {
                     phone_number = user.phone_number
                 }
+                // Mark fields as autofilled and locked
+                isAutoFilled = true
             }
         }
     }
@@ -605,23 +612,36 @@ struct FormTextField: View {
     var isEmpty: Bool = false
     var keyboardType: UIKeyboardType = .default
     var showLabel: Bool = true
+    var isDisabled: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if showLabel {
-                Text(label)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(isEmpty ? Colors.flexibleRed : Colors.flexibleBlack)
+                HStack(spacing: 6) {
+                    Text(label)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(isEmpty ? Colors.flexibleRed : Colors.flexibleBlack)
+                    
+                    if isDisabled {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                            Text("(Auto-filled)")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(Colors.flexibleDarkGray.opacity(0.7))
+                    }
+                }
             }
             
             TextField(placeholder, text: $text)
                 .font(.system(size: 16, weight: .regular))
-                .foregroundColor(Colors.flexibleBlack)
+                .foregroundColor(isDisabled ? Colors.flexibleDarkGray : Colors.flexibleBlack)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Colors.flexibleWhite)
+                        .fill(isDisabled ? Colors.flexibleLightGray.opacity(0.3) : Colors.flexibleWhite)
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
                                 .stroke(isEmpty ? Colors.flexibleRed : Colors.flexibleLightGray, lineWidth: isEmpty ? 2 : 1)
@@ -630,6 +650,7 @@ struct FormTextField: View {
                 .keyboardType(keyboardType)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .disabled(isDisabled)
         }
     }
 }

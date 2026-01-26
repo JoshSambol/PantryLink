@@ -142,6 +142,8 @@ struct VolunteerContentView: View {
     
     @State private var show_success_alert = false
     @State private var isAutoFilled = false
+    @State private var isCheckingExisting = false
+    @State private var show_already_registered_alert = false
     
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
@@ -373,15 +375,34 @@ struct VolunteerContentView: View {
                                         return
                                     }
                                     empty_field = false
-                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                                        isClicked = true
+                                    
+                                    // Check if volunteer already exists before continuing
+                                    Task {
+                                        isCheckingExisting = true
+                                        let exists = await check_volunteer_exists(username: username)
+                                        isCheckingExisting = false
+                                        
+                                        if exists {
+                                            show_already_registered_alert = true
+                                        } else {
+                                            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                                isClicked = true
+                                            }
+                                        }
                                     }
                                 }) {
                                     HStack(spacing: 10) {
-                                        Text("Continue")
-                                            .font(.system(size: 18, weight: .bold))
-                                        Image(systemName: "arrow.right.circle.fill")
-                                            .font(.system(size: 20))
+                                        if isCheckingExisting {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: Colors.flexibleWhite))
+                                            Text("Checking...")
+                                                .font(.system(size: 18, weight: .bold))
+                                        } else {
+                                            Text("Continue")
+                                                .font(.system(size: 18, weight: .bold))
+                                            Image(systemName: "arrow.right.circle.fill")
+                                                .font(.system(size: 20))
+                                        }
                                     }
                                     .foregroundColor(Colors.flexibleWhite)
                                     .frame(maxWidth: .infinity)
@@ -399,6 +420,7 @@ struct VolunteerContentView: View {
                                     .cornerRadius(16)
                                     .shadow(color: Colors.flexibleGreen.opacity(0.4), radius: 8, y: 4)
                                 }
+                                .disabled(isCheckingExisting)
                                 .padding(.top, 12)
                             }
                             .padding(.horizontal, 20)
@@ -539,6 +561,11 @@ struct VolunteerContentView: View {
             }
         } message: {
             Text("Thank you for your interest! Your volunteer application has been successfully submitted and you are now in our system. We'll be in touch soon!")
+        }
+        .alert("Already Registered", isPresented: $show_already_registered_alert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("You already have a volunteer account registered. Please refer to the volunteer scheduling page for available shifts and opportunities.")
         }
         .onAppear {
             // Autofill form fields from logged-in user data

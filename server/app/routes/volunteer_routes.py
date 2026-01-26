@@ -85,3 +85,24 @@ def delete_volunteer(volunteer_id):
         return jsonify({"message": "Error deleting volunteer", "error": str(e)}), 400
     
     return jsonify({"_id": volunteer_id})
+
+@volunteer_routes.route("/check/<string:username>", methods=["GET"])
+def check_volunteer_exists(username):
+    """Check if a volunteer account already exists for the given username"""
+    try:
+        volunteer_instance = volunteer_model(current_app.mongo)
+        existing_volunteer = volunteer_instance.find_volunteer_by_username(username)
+        
+        if existing_volunteer:
+            return jsonify({
+                "exists": True,
+                "message": "A volunteer account already exists for this username"
+            }), 200
+        else:
+            return jsonify({
+                "exists": False,
+                "message": "No volunteer account found for this username"
+            }), 200
+
+    except Exception as e:
+        return jsonify({"message": "Error checking volunteer", "error": str(e)}), 400

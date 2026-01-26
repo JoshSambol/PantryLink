@@ -53,4 +53,11 @@ class volunteer_model:
 
     def delete_volunteer(self, volunteer_id):
         result = self.collection.delete_one({"_id": ObjectId(volunteer_id)})
-        return result 
+        return result
+    
+    def find_volunteer_by_username(self, username):
+        """Find a volunteer by username (case-insensitive)"""
+        volunteer = self.collection.find_one({"username": {"$regex": f"^{username}$", "$options": "i"}})
+        if volunteer:
+            volunteer['_id'] = str(volunteer['_id'])
+        return volunteer 

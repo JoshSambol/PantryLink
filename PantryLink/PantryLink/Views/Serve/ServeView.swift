@@ -9,7 +9,12 @@ import SwiftUI
 struct ServePageView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("isGuest") private var isGuest = false
+    @ObservedObject private var userManager = UserManager.shared
     @Binding var path: NavigationPath
+    
+    @State private var isCheckingVolunteer = false
+    @State private var showNotVolunteerAlert = false
+    @State private var showAlreadyVolunteerAlert = false
     
     var body: some View {
         NavigationStack(path: $path) {
@@ -89,11 +94,16 @@ struct ServePageView: View {
                         VStack(spacing: 20) {
                             // Volunteer Sign Up Button
                             Button(action: {
-                                path.append("Volunteer")
+                                checkAndNavigateToVolunteerSignup()
                             }) {
                                 HStack(spacing: 12) {
-                                    Image(systemName: "person.badge.plus")
-                                        .font(.title2)
+                                    if isCheckingVolunteer {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    } else {
+                                        Image(systemName: "person.badge.plus")
+                                            .font(.title2)
+                                    }
                                     
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("Volunteer Sign Up")
@@ -115,14 +125,20 @@ struct ServePageView: View {
                                 .cornerRadius(16)
                                 .shadow(color: Colors.flexibleGreen.opacity(0.3), radius: 8, y: 4)
                             }
+                            .disabled(isCheckingVolunteer)
                             
                             // Volunteer Scheduling Button
                             Button(action: {
-                                path.append("Schedule")
+                                checkAndNavigateToSchedule()
                             }) {
                                 HStack(spacing: 12) {
-                                    Image(systemName: "calendar.badge.clock")
-                                        .font(.title2)
+                                    if isCheckingVolunteer {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    } else {
+                                        Image(systemName: "calendar.badge.clock")
+                                            .font(.title2)
+                                    }
                                     
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("Volunteer Scheduling")
@@ -144,6 +160,7 @@ struct ServePageView: View {
                                 .cornerRadius(16)
                                 .shadow(color: Colors.flexibleBlue.opacity(0.3), radius: 8, y: 4)
                             }
+                            .disabled(isCheckingVolunteer)
                             
                             // Donation Button
                             Button(action: {
@@ -190,6 +207,76 @@ struct ServePageView: View {
                 default:
                     EmptyView()
                 }
+            }
+            .alert("Already Registered", isPresented: $showAlreadyVolunteerAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("You already have a volunteer account. Please use \"Volunteer Scheduling\" to view available shifts and sign up for opportunities.")
+            }
+            .alert("Volunteer Account Required", isPresented: $showNotVolunteerAlert) {
+                Button("Sign Up Now") {
+                    path.append("Volunteer")
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("You need to sign up as a volunteer first before you can view and manage shifts. Would you like to sign up now?")
+            }
+        }
+    }
+    
+    private func checkVolunteerExists() async -> Bool {
+        guard let username = userManager.currentUser?.username else {
+            return false
+        }
+        
+        guard let url = URL(string: "https://yellow-team.onrender.com/volunteer/check/\(username)") else {
+            return false
+        }
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                return false
+            }
+            
+            if let json = try? JSONDecoder().decode([String: Bool].self, from: data),
+               let exists = json["exists"] {
+                return exists
+            }
+            
+            return false
+        } catch {
+            print("Error checking volunteer: \(error)")
+            return false
+        }
+    }
+    
+    private func checkAndNavigateToVolunteerSignup() {
+        Task {
+            isCheckingVolunteer = true
+            let exists = await checkVolunteerExists()
+            isCheckingVolunteer = false
+            
+            if exists {
+                showAlreadyVolunteerAlert = true
+            } else {
+                path.append("Volunteer")
+            }
+        }
+    }
+    
+    private func checkAndNavigateToSchedule() {
+        Task {
+            isCheckingVolunteer = true
+            let exists = await checkVolunteerExists()
+            isCheckingVolunteer = false
+            
+            if exists {
+                path.append("Schedule")
+            } else {
+                showNotVolunteerAlert = true
             }
         }
     }

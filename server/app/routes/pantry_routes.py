@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, current_app, request
 from app.models.pantry import pantry_model
+from app.models.device_token import DeviceTokenModel
+from app.services.push_notifications import send_stream_notification
 from bson import ObjectId
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
@@ -132,15 +134,39 @@ def get_pantry_info(pantry_id):
 @pantry_routes.route("/<string:pantry_id>/stream", methods=["POST"])
 def post_stream(pantry_id):
     try:
-        pantry_id = ObjectId(pantry_id)
+        pantry_id_obj = ObjectId(pantry_id)
         data = request.get_json()
         message = data.get("message")
         if not message or not isinstance(message, str):
             return jsonify({"message": "Missing or invalid message"}), 400
+        
         new_pantry = pantry_model(current_app.mongo)
-        updated_stream = new_pantry.post_stream_message(pantry_id, message)
+        
+        # Get pantry info for the notification title
+        pantry_info = new_pantry.get_pantry_info(pantry_id_obj)
+        pantry_name = pantry_info.get("name", "Pantry") if pantry_info else "Pantry"
+        
+        # Post the stream message
+        updated_stream = new_pantry.post_stream_message(pantry_id_obj, message)
         if updated_stream is None:
             return jsonify({"message": "Pantry not found"}), 404
+        
+        # Send push notifications to all registered devices
+        try:
+            device_model = DeviceTokenModel(current_app.mongo)
+            device_tokens = device_model.get_all_active_tokens()
+            
+            if device_tokens:
+                notification_results = send_stream_notification(
+                    pantry_name=pantry_name,
+                    message=message,
+                    device_tokens=device_tokens
+                )
+                print(f"Push notifications sent: {notification_results['success_count']} success, {notification_results['failure_count']} failed")
+        except Exception as notif_error:
+            # Log but don't fail the request if notifications fail
+            print(f"Error sending push notifications: {notif_error}")
+        
         return jsonify({"stream": updated_stream}), 200
     except Exception as e:
         return jsonify({"message": "Error appending stream", "error": str(e)}), 400

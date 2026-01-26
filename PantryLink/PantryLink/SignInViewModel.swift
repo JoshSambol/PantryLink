@@ -7,6 +7,7 @@
 
 
 import Foundation
+import UIKit
 extension SignInView {
     //allows you to edit the properties of another view/class in a different structure, lets us edit aler_message in this context
     
@@ -54,6 +55,13 @@ extension SignInView {
                         )
                         // Store user data
                         UserManager.shared.setUser(user)
+                        
+                        // Associate device token with user for push notifications
+                        DispatchQueue.main.async {
+                            if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+                                appDelegate.associateDeviceWithUser(username: username)
+                            }
+                        }
                     }
                 }
                 return .success

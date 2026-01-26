@@ -10,6 +10,7 @@ volunteer_routes = Blueprint("volunteer_routes", __name__)
 def create_volunteer():
     try:
         data = request.get_json()
+        username = data["username"]
         first_name = data["first_name"]
         last_name = data["last_name"]
         date_of_birth = data["date_of_birth"]
@@ -24,7 +25,7 @@ def create_volunteer():
         
         new_volunteer = volunteer_model(current_app.mongo)
 
-        response = new_volunteer.create_volunteer(first_name, last_name, date_of_birth, email, phone_number, zipcode, roles, availability, emergency_name, emergency_number, verified)
+        response = new_volunteer.create_volunteer(username, first_name, last_name, date_of_birth, email, phone_number, zipcode, roles, availability, emergency_name, emergency_number, verified)
 
     except Exception as e:
         return jsonify({"message": "Error creating volunteer", "error": str(e)}), 400
@@ -41,6 +42,7 @@ def update_volunteer(volunteer_id):
         data = request.get_json()
 
         update_data = {
+            "username": data["username"],
             "first_name": data["first_name"],
             "last_name": data["last_name"],
             "date_of_birth": data["date_of_birth"],
@@ -83,3 +85,24 @@ def delete_volunteer(volunteer_id):
         return jsonify({"message": "Error deleting volunteer", "error": str(e)}), 400
     
     return jsonify({"_id": volunteer_id})
+
+@volunteer_routes.route("/check/<string:username>", methods=["GET"])
+def check_volunteer_exists(username):
+    """Check if a volunteer account already exists for the given username"""
+    try:
+        volunteer_instance = volunteer_model(current_app.mongo)
+        existing_volunteer = volunteer_instance.find_volunteer_by_username(username)
+        
+        if existing_volunteer:
+            return jsonify({
+                "exists": True,
+                "message": "A volunteer account already exists for this username"
+            }), 200
+        else:
+            return jsonify({
+                "exists": False,
+                "message": "No volunteer account found for this username"
+            }), 200
+
+    except Exception as e:
+        return jsonify({"message": "Error checking volunteer", "error": str(e)}), 400

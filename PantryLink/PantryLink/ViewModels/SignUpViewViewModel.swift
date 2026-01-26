@@ -10,7 +10,7 @@ import Foundation
 
 extension SignUpView{    
     
-     func signUp(user: User) async -> Bool{
+     func signUp(user: User) async -> (success: Bool, message: String?){
         
         
         // Add new code
@@ -18,7 +18,7 @@ extension SignUpView{
         guard let url = URL(string: "https://yellow-team.onrender.com/user/create") else
          {
             print("Error with URL")
-            return false
+            return (false, "Invalid URL configuration")
         }
         
         //takes inputed data and creates a request object
@@ -34,13 +34,32 @@ extension SignUpView{
             //attatching JSON data to the message that is sent to the server
             request.httpBody = jsonData
             
-            let (_, response) = try await URLSession.shared.data(for: request)
-                    guard let httpResponse = response as? HTTPURLResponse else { return false }
-                    return httpResponse.statusCode == 201
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { 
+                return (false, "Invalid server response")
+            }
+            
+            if httpResponse.statusCode == 201 {
+                return (true, nil)
+            } else if httpResponse.statusCode == 409 {
+                // Username already exists
+                if let json = try? JSONDecoder().decode([String: String].self, from: data),
+                   let message = json["message"] {
+                    return (false, message)
+                }
+                return (false, "Username is already taken. Please choose a different username.")
+            } else {
+                // Other errors
+                if let json = try? JSONDecoder().decode([String: String].self, from: data),
+                   let message = json["message"] {
+                    return (false, message)
+                }
+                return (false, "Failed to create account. Please try again.")
+            }
         }
         catch{
-            print("error uploading user data")
-            return false
+            print("error uploading user data: \(error)")
+            return (false, "Network error. Please check your connection and try again.")
         }
     }
 }

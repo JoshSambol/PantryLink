@@ -7,7 +7,7 @@ from app.config import init_config
 def create_app():
     #temperary name of project
     app = Flask("Food Insecurity Co-op")
-    CORS(app)
+    CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]}})
     
     # Initialize JWT
     app.config['JWT_SECRET_KEY'] = 'your-secret-key-change-in-production'

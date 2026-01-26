@@ -18,11 +18,16 @@ def create_pantry():
         username = data.get("username", email)  # Use email as username if not provided
         website = data.get("website")  # Optional website field
 
+        # Check if username already exists (case-insensitive)
+        new_pantry = pantry_model(current_app.mongo)
+        existing_pantry = new_pantry.find_user_by_username(username)
+        if existing_pantry:
+            return jsonify({"message": "Username is already taken. Please choose a different username."}), 409
+
         # Hash the password
         bcrypt = Bcrypt(current_app)
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-        new_pantry = pantry_model(current_app.mongo)
         response = new_pantry.create_pantry(name, address, email, phone_number, hashed_password, username, website)
 
     except Exception as e:
@@ -284,6 +289,33 @@ def delete_schedule_for_date(pantry_id, date_key):
         return jsonify({"message": "Schedule deleted"}), 200
     except Exception as e:
         return jsonify({"message": "Error deleting schedule", "error": str(e)}), 400
+@pantry_routes.route("/<string:pantry_id>/schedule-settings", methods=["GET"])
+def get_schedule_settings(pantry_id):
+    """Get volunteer schedule settings for a pantry"""
+    try:
+        pantry_id = ObjectId(pantry_id)
+        model = pantry_model(current_app.mongo)
+        settings = model.get_schedule_settings(pantry_id)
+        return jsonify({"settings": settings}), 200
+    except Exception as e:
+        return jsonify({"message": "Error getting schedule settings", "error": str(e)}), 400
+
+@pantry_routes.route("/<string:pantry_id>/schedule-settings", methods=["PUT"])
+def save_schedule_settings(pantry_id):
+    """Save volunteer schedule settings for a pantry"""
+    try:
+        data = request.get_json() or {}
+        settings = data.get("settings", {})
+        pantry_id = ObjectId(pantry_id)
+        model = pantry_model(current_app.mongo)
+        success = model.save_schedule_settings(pantry_id, settings)
+        if success:
+            return jsonify({"message": "Settings saved successfully"}), 200
+        else:
+            return jsonify({"message": "Failed to save settings"}), 404
+    except Exception as e:
+        return jsonify({"message": "Error saving schedule settings", "error": str(e)}), 400
+
 @pantry_routes.route("/", methods=["GET"])
 def get_pantries():
     try:

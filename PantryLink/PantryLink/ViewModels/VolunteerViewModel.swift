@@ -12,6 +12,36 @@ import SwiftUI
 extension VolunteerContentView {
     //allows you to edit the properties of another view/class in a different structure, so in here, lets us edit alert_message
     
+    func check_volunteer_exists(username: String) async -> Bool {
+        guard let url = URL(string: "https://yellow-team.onrender.com/volunteer/check/\(username)") else {
+            return false
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                return false
+            }
+            
+            // Parse the response
+            if let json = try? JSONDecoder().decode([String: Bool].self, from: data),
+               let exists = json["exists"] {
+                return exists
+            }
+            
+            return false
+        } catch {
+            print("Error checking volunteer: \(error)")
+            return false
+        }
+    }
+    
     func register_volunteer(volunteer: Volunteer, show_success: Binding<Bool>){
         guard let url = URL(string: "https://yellow-team.onrender.com/volunteer/create") else
         { return }

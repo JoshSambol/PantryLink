@@ -36,11 +36,16 @@ def post_users():
         email = data["email"]
         phone_number = data["phone_number"]
 
-        bcrypt = Bcrypt(current_app)
-        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-
         #creating an object from UserModel
         new_user = UserModel(current_app.mongo)
+        
+        # Check if username already exists (case-insensitive)
+        existing_user = new_user.find_user_by_username(username)
+        if existing_user:
+            return jsonify({"message": "Username is already taken. Please choose a different username."}), 409
+
+        bcrypt = Bcrypt(current_app)
+        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
         
         #creates the new user
         response = new_user.create_user(hashed_password, username, first_name, last_name, email, phone_number)

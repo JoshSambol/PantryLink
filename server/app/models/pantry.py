@@ -168,6 +168,32 @@ class pantry_model:
         self.collection.update_one({"_id": pantry_id}, {"$unset": unset_spec})
         return len(to_remove)
     
+    def get_schedule_settings(self, pantry_id):
+        """Get volunteer schedule settings for a pantry"""
+        pantry = self.collection.find_one(
+            {"_id": pantry_id},
+            {"schedule_settings": 1, "_id": 0}
+        )
+        if pantry and "schedule_settings" in pantry:
+            return pantry["schedule_settings"]
+        # Return default settings if none exist
+        return {
+            "schedulingEnabled": True,
+            "schedulingMode": "shifts",
+            "openDays": [1, 2, 3, 4, 5],  # Monday through Friday
+            "excludedDates": [],
+            "useDefaultSchedule": False,
+            "defaultSchedule": []
+        }
+    
+    def save_schedule_settings(self, pantry_id, settings):
+        """Save volunteer schedule settings for a pantry"""
+        result = self.collection.update_one(
+            {"_id": pantry_id},
+            {"$set": {"schedule_settings": settings}}
+        )
+        return result.matched_count > 0
+    
     def get_pantries(self):
         """Swift stream view functionality"""
         return list(

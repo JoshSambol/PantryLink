@@ -13,6 +13,7 @@ struct VolunteerPageView: View {
     @Binding var path: NavigationPath
     
     //form 1 data fields
+    @State var username: String = ""
     @State var first_name: String = ""
     @State var last_name: String = ""
     @State var date_of_birth: String = ""
@@ -40,6 +41,7 @@ struct VolunteerPageView: View {
         NavigationStack(path: $path) {
             VolunteerContentView(
                 userManager: userManager,
+                username: $username,
                 first_name: $first_name,
                 last_name: $last_name,
                 date_of_birth: $date_of_birth,
@@ -71,6 +73,7 @@ struct VolunteerView: View {
     @Binding var path: NavigationPath
     
     //form 1 data fields
+    @State var username: String = ""
     @State var first_name: String = ""
     @State var last_name: String = ""
     @State var date_of_birth: String = ""
@@ -97,6 +100,7 @@ struct VolunteerView: View {
     var body: some View {
         VolunteerContentView(
             userManager: userManager,
+            username: $username,
             first_name: $first_name,
             last_name: $last_name,
             date_of_birth: $date_of_birth,
@@ -119,6 +123,7 @@ struct VolunteerView: View {
 // Shared content view for volunteer functionality
 struct VolunteerContentView: View {
     @ObservedObject var userManager: UserManager
+    @Binding var username: String
     @Binding var first_name: String
     @Binding var last_name: String
     @Binding var date_of_birth: String
@@ -136,6 +141,9 @@ struct VolunteerContentView: View {
     @Binding var path: NavigationPath
     
     @State private var show_success_alert = false
+    @State private var isAutoFilled = false
+    @State private var isCheckingExisting = false
+    @State private var show_already_registered_alert = false
     
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
@@ -307,17 +315,27 @@ struct VolunteerContentView: View {
                                 
                             VStack(spacing: 16) {
                                 FormTextField(
+                                    label: "Username",
+                                    text: $username,
+                                    placeholder: "Enter your username",
+                                    isEmpty: empty_field && username.isEmpty,
+                                    isDisabled: isAutoFilled
+                                )
+                                
+                                FormTextField(
                                     label: "First Name",
                                     text: $first_name,
                                     placeholder: "Enter your first name",
-                                    isEmpty: empty_field && first_name.isEmpty
+                                    isEmpty: empty_field && first_name.isEmpty,
+                                    isDisabled: isAutoFilled
                                 )
                                 
                                 FormTextField(
                                     label: "Last Name",
                                     text: $last_name,
                                     placeholder: "Enter your last name",
-                                    isEmpty: empty_field && last_name.isEmpty
+                                    isEmpty: empty_field && last_name.isEmpty,
+                                    isDisabled: isAutoFilled
                                 )
                                 
                                 FormTextField(
@@ -332,14 +350,16 @@ struct VolunteerContentView: View {
                                     text: $email,
                                     placeholder: "your.email@example.com",
                                     isEmpty: empty_field && email.isEmpty,
-                                    keyboardType: .emailAddress
+                                    keyboardType: .emailAddress,
+                                    isDisabled: isAutoFilled
                                 )
                                 
                                 FormTextField(
                                     label: "Phone Number",
                                     text: $phone_number,
                                     placeholder: "(555) 123-4567",
-                                    isEmpty: empty_field && phone_number.isEmpty
+                                    isEmpty: empty_field && phone_number.isEmpty,
+                                    isDisabled: isAutoFilled
                                 )
                                 
                                 FormTextField(
@@ -350,20 +370,39 @@ struct VolunteerContentView: View {
                                 )
                                 
                                 Button(action: {
-                                    guard !first_name.isEmpty, !last_name.isEmpty, !date_of_birth.isEmpty, !email.isEmpty, !phone_number.isEmpty, !zipcode.isEmpty else {
+                                    guard !username.isEmpty, !first_name.isEmpty, !last_name.isEmpty, !date_of_birth.isEmpty, !email.isEmpty, !phone_number.isEmpty, !zipcode.isEmpty else {
                                         empty_field = true
                                         return
                                     }
                                     empty_field = false
-                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                                        isClicked = true
+                                    
+                                    // Check if volunteer already exists before continuing
+                                    Task {
+                                        isCheckingExisting = true
+                                        let exists = await check_volunteer_exists(username: username)
+                                        isCheckingExisting = false
+                                        
+                                        if exists {
+                                            show_already_registered_alert = true
+                                        } else {
+                                            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                                isClicked = true
+                                            }
+                                        }
                                     }
                                 }) {
                                     HStack(spacing: 10) {
-                                        Text("Continue")
-                                            .font(.system(size: 18, weight: .bold))
-                                        Image(systemName: "arrow.right.circle.fill")
-                                            .font(.system(size: 20))
+                                        if isCheckingExisting {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: Colors.flexibleWhite))
+                                            Text("Checking...")
+                                                .font(.system(size: 18, weight: .bold))
+                                        } else {
+                                            Text("Continue")
+                                                .font(.system(size: 18, weight: .bold))
+                                            Image(systemName: "arrow.right.circle.fill")
+                                                .font(.system(size: 20))
+                                        }
                                     }
                                     .foregroundColor(Colors.flexibleWhite)
                                     .frame(maxWidth: .infinity)
@@ -381,6 +420,7 @@ struct VolunteerContentView: View {
                                     .cornerRadius(16)
                                     .shadow(color: Colors.flexibleGreen.opacity(0.4), radius: 8, y: 4)
                                 }
+                                .disabled(isCheckingExisting)
                                 .padding(.top, 12)
                             }
                             .padding(.horizontal, 20)
@@ -454,6 +494,7 @@ struct VolunteerContentView: View {
                                     }
                                     
                                     let new_volunteer = Volunteer(
+                                        username: username,
                                         first_name: first_name,
                                         last_name: last_name,
                                         date_of_birth: date_of_birth,
@@ -521,9 +562,17 @@ struct VolunteerContentView: View {
         } message: {
             Text("Thank you for your interest! Your volunteer application has been successfully submitted and you are now in our system. We'll be in touch soon!")
         }
+        .alert("Already Registered", isPresented: $show_already_registered_alert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("You already have a volunteer account registered. Please refer to the volunteer scheduling page for available shifts and opportunities.")
+        }
         .onAppear {
             // Autofill form fields from logged-in user data
             if let user = userManager.currentUser {
+                if username.isEmpty {
+                    username = user.username
+                }
                 if first_name.isEmpty {
                     first_name = user.first_name
                 }
@@ -536,6 +585,8 @@ struct VolunteerContentView: View {
                 if phone_number.isEmpty {
                     phone_number = user.phone_number
                 }
+                // Mark fields as autofilled and locked
+                isAutoFilled = true
             }
         }
     }
@@ -605,23 +656,36 @@ struct FormTextField: View {
     var isEmpty: Bool = false
     var keyboardType: UIKeyboardType = .default
     var showLabel: Bool = true
+    var isDisabled: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if showLabel {
-                Text(label)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(isEmpty ? Colors.flexibleRed : Colors.flexibleBlack)
+                HStack(spacing: 6) {
+                    Text(label)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(isEmpty ? Colors.flexibleRed : Colors.flexibleBlack)
+                    
+                    if isDisabled {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                            Text("(Auto-filled)")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(Colors.flexibleDarkGray.opacity(0.7))
+                    }
+                }
             }
             
             TextField(placeholder, text: $text)
                 .font(.system(size: 16, weight: .regular))
-                .foregroundColor(Colors.flexibleBlack)
+                .foregroundColor(isDisabled ? Colors.flexibleDarkGray : Colors.flexibleBlack)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Colors.flexibleWhite)
+                        .fill(isDisabled ? Colors.flexibleLightGray.opacity(0.3) : Colors.flexibleWhite)
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
                                 .stroke(isEmpty ? Colors.flexibleRed : Colors.flexibleLightGray, lineWidth: isEmpty ? 2 : 1)
@@ -630,6 +694,7 @@ struct FormTextField: View {
                 .keyboardType(keyboardType)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .disabled(isDisabled)
         }
     }
 }

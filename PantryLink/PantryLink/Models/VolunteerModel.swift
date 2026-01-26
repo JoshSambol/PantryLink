@@ -9,6 +9,7 @@ import Foundation
 
 struct Volunteer: Codable {
     //form 1 data fields
+    var username: String
     var first_name: String
     var last_name: String
     var date_of_birth: String

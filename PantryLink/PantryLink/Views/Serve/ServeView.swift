@@ -229,7 +229,9 @@ struct ServePageView: View {
             return false
         }
         
-        guard let url = URL(string: "https://yellow-team.onrender.com/volunteer/check/\(username)") else {
+        // URL encode the username to handle special characters
+        guard let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "https://yellow-team.onrender.com/volunteer/check/\(encodedUsername)") else {
             return false
         }
         
@@ -241,14 +243,17 @@ struct ServePageView: View {
                 return false
             }
             
-            if let json = try? JSONDecoder().decode([String: Bool].self, from: data),
-               let exists = json["exists"] {
-                return exists
+            struct VolunteerCheckResponse: Codable {
+                let exists: Bool
+                let message: String
+            }
+            
+            if let result = try? JSONDecoder().decode(VolunteerCheckResponse.self, from: data) {
+                return result.exists
             }
             
             return false
         } catch {
-            print("Error checking volunteer: \(error)")
             return false
         }
     }
@@ -259,10 +264,12 @@ struct ServePageView: View {
             let exists = await checkVolunteerExists()
             isCheckingVolunteer = false
             
-            if exists {
-                showAlreadyVolunteerAlert = true
-            } else {
-                path.append("Volunteer")
+            await MainActor.run {
+                if exists {
+                    showAlreadyVolunteerAlert = true
+                } else {
+                    path.append("Volunteer")
+                }
             }
         }
     }
@@ -273,10 +280,12 @@ struct ServePageView: View {
             let exists = await checkVolunteerExists()
             isCheckingVolunteer = false
             
-            if exists {
-                path.append("Schedule")
-            } else {
-                showNotVolunteerAlert = true
+            await MainActor.run {
+                if exists {
+                    path.append("Schedule")
+                } else {
+                    showNotVolunteerAlert = true
+                }
             }
         }
     }

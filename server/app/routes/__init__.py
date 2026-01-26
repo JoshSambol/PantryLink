@@ -3,6 +3,7 @@ from .pantryauth_route import pantryauth_route
 from .user_routes import user_routes
 from .pantry_routes import pantry_routes
 from .auth_routes import auth_routes
+from .device_routes import device_routes
 
 def init_routes(app):
     app.register_blueprint(volunteer_routes, url_prefix="/volunteer")
@@ -10,3 +11,4 @@ def init_routes(app):
     app.register_blueprint(user_routes, url_prefix="/user")
     app.register_blueprint(pantry_routes, url_prefix="/pantry")
     app.register_blueprint(auth_routes, url_prefix="/auth")
+    app.register_blueprint(device_routes, url_prefix="/device")

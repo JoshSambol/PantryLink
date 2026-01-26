@@ -1167,15 +1167,20 @@ import {
 
     const handleSave = async () => {
       try {
-        // Enrich schedule with emails before saving
+        // Enrich schedule with emails and usernames before saving
         const enriched = (editingSchedule || []).map(shift => ({
           id: shift.id,
           time: shift.time,
           shift: shift.shift,
           volunteers: (shift.volunteers || []).map(v => {
-            if ((v.email || '').trim()) return v;
+            if ((v.email || '').trim() && (v.username || '').trim()) return v;
             const match = volunteers.find(m => `${m.first_name} ${m.last_name}` === (v.name || ''));
-            return { name: v.name || '', role: v.role || '', email: match?.email || '' };
+            return { 
+              name: v.name || '', 
+              role: v.role || '', 
+              email: match?.email || '',
+              username: match?.username || ''
+            };
           })
         }));
 
@@ -1229,7 +1234,8 @@ import {
                   if (field === 'name') {
                     const match = volunteers.find(v => `${v.first_name} ${v.last_name}` === value);
                     const email = match?.email || '';
-                    return { ...vol, name: value, email };
+                    const username = match?.username || '';
+                    return { ...vol, name: value, email, username };
                   }
                   return { ...vol, [field]: value };
                 })
@@ -1245,7 +1251,7 @@ import {
           shift.id === shiftId 
             ? {
                 ...shift,
-                volunteers: [...shift.volunteers, { name: "", role: "" }]
+                volunteers: [...shift.volunteers, { name: "", role: "", email: "", username: "" }]
               }
             : shift
         )

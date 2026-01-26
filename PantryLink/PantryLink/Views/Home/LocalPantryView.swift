@@ -173,7 +173,7 @@ struct LocalPantryView: View {
         .onAppear{
             location.checkLocationAuthorization()
         }
-        .onChange(of: location.locationReady) { newValue in
+        .onChange(of: location.locationReady) { _, newValue in
             if newValue {
                 location.findPantries()
             }

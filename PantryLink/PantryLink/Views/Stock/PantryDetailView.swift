@@ -725,7 +725,8 @@ struct PantryInfoPopUpView: View {
             stream: nil,
             email: "contact@montgomerypantry.org",
             phone_number: "(908) 555-1234",
-            website: "https://montgomerypantry.org"
+            website: "https://montgomerypantry.org",
+            schedule_settings: nil
         )
     )
 }

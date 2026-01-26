@@ -50,7 +50,7 @@ import {
     const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
     return userData._id;
   };
-  const DashboardComp = ({ volunteers = [], inventory = [], volunteerSchedule = [] })=>{
+  const DashboardComp = ({ volunteers = [], inventory = [] })=>{
     // Calculate real metrics
     const totalVolunteers = volunteers.length;
     
@@ -61,131 +61,185 @@ import {
     
     // Calculate low stock items (less than 35% full)
     const lowStockItems = inventory.filter(item => (item.current / item.full) < 0.35).length;
-    
-    // Calculate total scheduled volunteers for today (only count volunteers with actual names)
-    const totalScheduledVolunteers = volunteerSchedule.reduce((sum, shift) => {
-      const actualVolunteers = shift.volunteers.filter(vol => vol.name && vol.name.trim() !== '');
-      return sum + actualVolunteers.length;
-    }, 0);
 
-    // Latest stream post state
+    // State for schedule settings and today's schedule
+    const [scheduleSettings, setScheduleSettings] = useState(null);
+    const [todaysSchedule, setTodaysSchedule] = useState({ shifts: [], general_volunteers: [] });
+    const [scheduleLoading, setScheduleLoading] = useState(true);
     const [latestPost, setLatestPost] = useState(null);
     const [latestLoading, setLatestLoading] = useState(true);
 
     useEffect(() => {
-      const fetchLatestStream = async () => {
+      const fetchData = async () => {
         try {
-          setLatestLoading(true);
           const pantryId = getPantryId();
           if (!pantryId) return;
-          const response = await axios.get(`${API_BASE_URL}/pantry/info/${pantryId}`);
-          const stream = response.data.stream || [];
-          const last = stream.length > 0 ? stream[stream.length - 1] : null;
-          setLatestPost(last);
+          
+          // Fetch schedule settings
+          const settingsRes = await axios.get(`${API_BASE_URL}/pantry/${pantryId}/schedule-settings`);
+          setScheduleSettings(settingsRes.data.settings || null);
+          
+          // Fetch today's schedule
+          const todayKey = new Date().toISOString().slice(0, 10);
+          const scheduleRes = await axios.get(`${API_BASE_URL}/pantry/${pantryId}/schedule`, { params: { date: todayKey } });
+          let schedule = scheduleRes.data?.schedule;
+          if (Array.isArray(schedule)) {
+            schedule = { shifts: schedule, general_volunteers: [] };
+          } else if (!schedule || typeof schedule !== 'object') {
+            schedule = { shifts: [], general_volunteers: [] };
+          }
+          setTodaysSchedule(schedule);
+          
+          // Fetch latest stream
+          const infoRes = await axios.get(`${API_BASE_URL}/pantry/info/${pantryId}`);
+          const stream = infoRes.data.stream || [];
+          setLatestPost(stream.length > 0 ? stream[stream.length - 1] : null);
         } catch (e) {
-          setLatestPost(null);
+          console.error('Error fetching dashboard data:', e);
         } finally {
+          setScheduleLoading(false);
           setLatestLoading(false);
         }
       };
-      fetchLatestStream();
+      fetchData();
     }, []);
+
+    // Calculate total scheduled volunteers for today
+    const totalScheduledVolunteers = 
+      todaysSchedule.shifts.reduce((sum, shift) => sum + (shift.volunteers?.filter(v => v.name?.trim()).length || 0), 0) +
+      (todaysSchedule.general_volunteers?.filter(v => v.name?.trim()).length || 0);
+
+    // Check if default schedule is configured
+    const hasDefaultSchedule = scheduleSettings?.useDefaultSchedule && scheduleSettings?.defaultSchedule?.length > 0;
 
     return(
       <Stack spacing="md">
-            <Grid>
-              <Grid.Col span={3}>
-                <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
-                  <Text size="sm" color="dimmed">Total Volunteers</Text>
-                  <Text size="xl" fw={700}>{totalVolunteers}</Text>
-                </Paper>
-              </Grid.Col>
-              <Grid.Col span={3}>
-                <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
-                  <Text size="sm" color="dimmed">Stock(%)</Text>
-                  <Text size="xl" fw={700}>{stockPercentage}%</Text>
-                </Paper>
-              </Grid.Col>
-              <Grid.Col span={3}>
-                <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
-                  <Text size="sm" color="dimmed">Low Stock Items</Text>
-                  <Text size="xl" fw={700} style={{ color: lowStockItems > 0 ? 'red' : 'green' }}>{lowStockItems}</Text>
-                </Paper>
-              </Grid.Col>
-              <Grid.Col span={3}>
-                <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
-                  <Text size="sm" color="dimmed">Scheduled Today</Text>
-                  <Text size="xl" fw={700}>{totalScheduledVolunteers}</Text>
-                </Paper>
-              </Grid.Col>
-            </Grid>
-  
-            <Grid>
-              <Grid.Col span={12}>
-                <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
-                  <Text size="sm" fw={900} mb="xs">Today's Schedule</Text>
-                  {volunteerSchedule.length === 0 ? (
-                    <Paper p="md" radius="lg" shadow="xs" withBorder style={{ margin: '1rem', backgroundColor: '#fff' }}>
-                      <Text color="dimmed" ta="center">No shifts scheduled for today</Text>
-                    </Paper>
-                  ) : (
-                    volunteerSchedule.map((shift) => (
-                      <Paper key={shift.id} p="md" radius="lg" shadow="xs" withBorder style={{ margin: '1rem', backgroundColor: '#fff' }}>
-                        <Flex justify="space-between" align="center" style={{ position: 'relative' }}>
-                          <Text fw={900}>{shift.time}</Text>
-                          <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
-                            <Text>{shift.shift}</Text>
-                          </div>
-                          <Text size="sm" color="dimmed">
-                            {shift.volunteers.filter(vol => vol.name && vol.name.trim() !== '').length} volunteer{shift.volunteers.filter(vol => vol.name && vol.name.trim() !== '').length !== 1 ? 's' : ''}
-                          </Text>
-                        </Flex>
-                        {shift.volunteers.filter(vol => vol.name && vol.name.trim() !== '').length > 0 && (
-                          <Stack spacing="xs" mt="sm">
-                            {shift.volunteers.filter(vol => vol.name && vol.name.trim() !== '').map((volunteer, index) => (
-                              <Text key={index} size="sm" color="dimmed" ml="md">
-                                • {volunteer.name} - {volunteer.role}
-                              </Text>
-                            ))}
-                          </Stack>
-                        )}
-                      </Paper>
-                    ))
-                  )}
-                  <Text size="sm" color="dimmed" mt="sm">Update on the volunteer page</Text>
-                </Paper>
-              </Grid.Col>
-              <Grid.Col span={12}>
-                <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5', marginTop: '1rem' }}>
-                  <Text fw={700} size="md" mb="xs">Current Stream Post</Text>
-                  {latestLoading ? (
-                    <>
-                      <Loader size="sm" />
-                      <Text size="sm" color="dimmed">Loading latest post...</Text>
-                    </>
-                  ) : latestPost ? (
-                    <Blockquote color="blue" p="md">
-                      <Flex align="center" style={{ width: '100%' }}>
-                        <Text size="xs" color="dimmed" style={{ minWidth: 140 }}>
-                          {typeof latestPost === 'string' ? '' : latestPost.date}
-                        </Text>
-                        <Flex justify="center" align="center" style={{ flex: 1 }}>
-                          {typeof latestPost === 'string' ? (
-                            <Text ta="center">{latestPost}</Text>
-                          ) : (
-                            <Text ta="center">{latestPost.message}</Text>
-                          )}
-                        </Flex>
-                        <div style={{ minWidth: 140 }} />
+        <Grid>
+          <Grid.Col span={3}>
+            <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+              <Text size="sm" color="dimmed">Total Volunteers</Text>
+              <Text size="xl" fw={700}>{totalVolunteers}</Text>
+            </Paper>
+          </Grid.Col>
+          <Grid.Col span={3}>
+            <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+              <Text size="sm" color="dimmed">Stock(%)</Text>
+              <Text size="xl" fw={700}>{stockPercentage}%</Text>
+            </Paper>
+          </Grid.Col>
+          <Grid.Col span={3}>
+            <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+              <Text size="sm" color="dimmed">Low Stock Items</Text>
+              <Text size="xl" fw={700} style={{ color: lowStockItems > 0 ? 'red' : 'green' }}>{lowStockItems}</Text>
+            </Paper>
+          </Grid.Col>
+          <Grid.Col span={3}>
+            <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+              <Text size="sm" color="dimmed">Scheduled Today</Text>
+              <Text size="xl" fw={700}>{totalScheduledVolunteers}</Text>
+            </Paper>
+          </Grid.Col>
+        </Grid>
+
+        <Grid>
+          <Grid.Col span={12}>
+            <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+              <Text size="sm" fw={900} mb="xs">Your Default Schedule</Text>
+              {scheduleLoading ? (
+                <Center p="md"><Loader size="sm" /></Center>
+              ) : !hasDefaultSchedule ? (
+                <Alert color="orange" icon={<IconInfoCircle size={16} />} mb="md">
+                  <Text fw={500}>No default schedule configured!</Text>
+                  <Text size="sm">Go to the Volunteers page to set up your default shifts, open days, and excluded dates. This helps volunteers know when they can sign up.</Text>
+                </Alert>
+              ) : (
+                <Stack spacing="xs">
+                  {scheduleSettings.defaultSchedule.map((shift) => (
+                    <Paper key={shift.id} p="sm" radius="md" withBorder style={{ backgroundColor: '#fff' }}>
+                      <Flex justify="space-between" align="center">
+                        <Text fw={600}>{shift.shift}</Text>
+                        <Text size="sm" color="dimmed">{shift.time}</Text>
                       </Flex>
-                    </Blockquote>
-                  ) : (
-                    <Text size="sm" color="dimmed">No stream posts yet</Text>
-                  )}
+                    </Paper>
+                  ))}
+                  <Text size="xs" color="dimmed" mt="xs">
+                    Open days: {scheduleSettings.openDays?.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ') || 'Not set'}
+                    {scheduleSettings.excludedDates?.length > 0 && ` | ${scheduleSettings.excludedDates.length} excluded date(s)`}
+                  </Text>
+                </Stack>
+              )}
+            </Paper>
+          </Grid.Col>
+          
+          <Grid.Col span={12}>
+            <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+              <Text size="sm" fw={900} mb="xs">Today's Schedule</Text>
+              {scheduleLoading ? (
+                <Center p="md"><Loader size="sm" /></Center>
+              ) : todaysSchedule.shifts.length === 0 && todaysSchedule.general_volunteers?.length === 0 ? (
+                <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#fff' }}>
+                  <Text color="dimmed" ta="center">No volunteers scheduled for today</Text>
                 </Paper>
-              </Grid.Col>
-            </Grid>
-          </Stack>
+              ) : (
+                <>
+                  {todaysSchedule.shifts.map((shift) => (
+                    <Paper key={shift.id} p="md" radius="lg" shadow="xs" withBorder style={{ margin: '0.5rem 0', backgroundColor: '#fff' }}>
+                      <Flex justify="space-between" align="center">
+                        <Text fw={700}>{shift.shift}</Text>
+                        <Text size="sm" color="dimmed">{shift.time}</Text>
+                        <Text size="sm" color="dimmed">
+                          {shift.volunteers?.filter(v => v.name?.trim()).length || 0} volunteer(s)
+                        </Text>
+                      </Flex>
+                      {shift.volunteers?.filter(v => v.name?.trim()).length > 0 && (
+                        <Stack spacing="xs" mt="sm">
+                          {shift.volunteers.filter(v => v.name?.trim()).map((volunteer, index) => (
+                            <Text key={index} size="sm" color="dimmed" ml="md">• {volunteer.name}</Text>
+                          ))}
+                        </Stack>
+                      )}
+                    </Paper>
+                  ))}
+                  {todaysSchedule.general_volunteers?.filter(v => v.name?.trim()).length > 0 && (
+                    <Paper p="md" radius="lg" shadow="xs" withBorder style={{ margin: '0.5rem 0', backgroundColor: '#f8f9fa' }}>
+                      <Text fw={700} mb="xs">General Volunteers</Text>
+                      <Stack spacing="xs">
+                        {todaysSchedule.general_volunteers.filter(v => v.name?.trim()).map((volunteer, index) => (
+                          <Text key={index} size="sm" color="dimmed">• {volunteer.name}</Text>
+                        ))}
+                      </Stack>
+                    </Paper>
+                  )}
+                </>
+              )}
+              <Text size="sm" color="dimmed" mt="sm">Manage on the Volunteers page</Text>
+            </Paper>
+          </Grid.Col>
+          
+          <Grid.Col span={12}>
+            <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+              <Text fw={700} size="md" mb="xs">Current Stream Post</Text>
+              {latestLoading ? (
+                <Center><Loader size="sm" /></Center>
+              ) : latestPost ? (
+                <Blockquote color="blue" p="md">
+                  <Flex align="center" style={{ width: '100%' }}>
+                    <Text size="xs" color="dimmed" style={{ minWidth: 140 }}>
+                      {typeof latestPost === 'string' ? '' : latestPost.date}
+                    </Text>
+                    <Flex justify="center" align="center" style={{ flex: 1 }}>
+                      <Text ta="center">{typeof latestPost === 'string' ? latestPost : latestPost.message}</Text>
+                    </Flex>
+                    <div style={{ minWidth: 140 }} />
+                  </Flex>
+                </Blockquote>
+              ) : (
+                <Text size="sm" color="dimmed">No stream posts yet</Text>
+              )}
+            </Paper>
+          </Grid.Col>
+        </Grid>
+      </Stack>
     )
   }
 
@@ -925,7 +979,7 @@ import {
       </>
     )
   }
-  const Volunteer = ({ onScheduleUpdate, foodBankName })=> {
+  const Volunteer = ({ foodBankName })=> {
 
     const [selectedVolunteer, setSelectedVolunteer] = useState(null)
     const [inboxInfo, setInboxInfo] = useState(false)
@@ -933,121 +987,63 @@ import {
     const [inboxVolunteers, setInboxVolunteers] = useState([])
     const [loading, setLoading] = useState(true)
     
-    // Volunteer Schedule State
-    const [volunteerSchedule, setVolunteerSchedule] = useState([
-      {
-        id: 1,
-        time: "8:00 AM - 12:00 PM",
-        shift: "Morning Shift",
-        volunteers: [
-          { name: " ", role: " " }
-        ]
-      },
-      {
-        id: 2,
-        time: "12:00 PM - 4:00 PM",
-        shift: "Afternoon Shift",
-        volunteers: [
-          { name: " ", role: " " }
-        ]
-      },
-      {
-        id: 3,
-        time: "4:00 PM - 8:00 PM",
-        shift: "Evening Shift",
-        volunteers: [
-          { name: " ", role: " " }
-        ]
-      },
-      {
-        id: 4,
-        time: "On Call",
-        shift: "Backup Volunteers",
-        volunteers: [
-          { name: " ", role: " " }
-        ]
-      }
-    ]);
-
-    const getDefaultSchedule = () => ([
-      {
-        id: 1,
-        time: "8:00 AM - 12:00 PM",
-        shift: "Morning Shift",
-        volunteers: []
-      },
-      {
-        id: 2,
-        time: "12:00 PM - 4:00 PM",
-        shift: "Afternoon Shift",
-        volunteers: []
-      },
-      {
-        id: 3,
-        time: "4:00 PM - 8:00 PM",
-        shift: "Evening Shift",
-        volunteers: []
-      },
-      {
-        id: 4,
-        time: "On Call",
-        shift: "Backup Volunteers",
-        volunteers: []
-      }
-    ]);
+    // Schedule state - new format with shifts and general_volunteers
+    const [scheduleData, setScheduleData] = useState({ shifts: [], general_volunteers: [] });
+    const [editingScheduleData, setEditingScheduleData] = useState({ shifts: [], general_volunteers: [] });
 
     const [isEditing, setIsEditing] = useState(false);
-    const [editingSchedule, setEditingSchedule] = useState([]);
     const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
-    const [scheduleByDate, setScheduleByDate] = useState({});
     
-    // Volunteer Schedule Settings State
-    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    // Schedule Settings State
     const [scheduleSettings, setScheduleSettings] = useState({
       schedulingEnabled: true,
-      schedulingMode: 'shifts', // 'shifts' or 'list'
-      openDays: [1, 2, 3, 4, 5], // 0=Sunday, 6=Saturday
-      excludedDates: [], // Array of date strings in YYYY-MM-DD format
+      openDays: [1, 2, 3, 4, 5],
+      excludedDates: [],
       useDefaultSchedule: false,
-      defaultSchedule: getDefaultSchedule()
+      defaultSchedule: []
     });
+    const [editingDefaultSchedule, setEditingDefaultSchedule] = useState([]);
+    const [isEditingDefaults, setIsEditingDefaults] = useState(false);
 
-    const todayKey = new Date().toISOString().slice(0, 10);
-
-    // Load schedules cache from localStorage on mount (used as fallback)
-    useEffect(() => {
-      try {
-        const stored = JSON.parse(localStorage.getItem('volunteer_schedules') || '{}');
-        setScheduleByDate(stored);
-      } catch (e) {
-        setScheduleByDate({});
-      }
-    }, []);
-
-    // Backend: fetch schedule for a date
+    // Backend: fetch schedule for a date (new format)
     const fetchScheduleForDate = async (dateKey) => {
       try {
         const pantryId = getPantryId();
         if (!pantryId) {
-          setVolunteerSchedule(getDefaultSchedule());
+          setScheduleData({ shifts: [], general_volunteers: [] });
           return;
         }
         const res = await axios.get(`${API_BASE_URL}/pantry/${pantryId}/schedule`, { params: { date: dateKey } });
-        const schedule = Array.isArray(res.data?.schedule) ? res.data.schedule : getDefaultSchedule();
-        setVolunteerSchedule(schedule);
+        
+        let schedule = res.data?.schedule;
+        // Handle new format (object) or legacy format (array)
+        if (Array.isArray(schedule)) {
+          schedule = { shifts: schedule, general_volunteers: [] };
+        } else if (!schedule || typeof schedule !== 'object') {
+          schedule = { shifts: [], general_volunteers: [] };
+        }
+        
+        // Ensure shifts have valid IDs
+        schedule.shifts = (schedule.shifts || []).map((shift, index) => ({
+          ...shift,
+          id: typeof shift.id === 'number' ? shift.id : index + 1,
+          volunteers: (shift.volunteers || []).map(v => ({ name: v.name || '', email: v.email || '', username: v.username || '' }))
+        }));
+        schedule.general_volunteers = (schedule.general_volunteers || []).map(v => ({ 
+          name: v.name || '', email: v.email || '', username: v.username || '' 
+        }));
+        
+        setScheduleData(schedule);
       } catch (e) {
-        // Fallback to local cache or defaults
-        const fallback = scheduleByDate[dateKey] || getDefaultSchedule();
-        setVolunteerSchedule(fallback);
+        console.error('Error fetching schedule:', e);
+        setScheduleData({ shifts: [], general_volunteers: [] });
       } finally {
         setIsEditing(false);
       }
     };
 
-    // When date changes, load that day's schedule from backend (fallback to cache/default)
     useEffect(() => {
       fetchScheduleForDate(selectedDate);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate]);
 
     // Fetch volunteers from backend
@@ -1056,22 +1052,12 @@ import {
         setLoading(true);
         const response = await axios.get(`${API_BASE_URL}/volunteer/get`);
         const allVolunteers = response.data;
-        
-        // Separate verified and unverified volunteers
         const verifiedVolunteers = allVolunteers.filter(vol => vol.verified === true || vol.verified === "True");
         const unverifiedVolunteers = allVolunteers.filter(vol => vol.verified === false || vol.verified === "False");
-        
         setVolunteers(verifiedVolunteers);
         setInboxVolunteers(unverifiedVolunteers);
       } catch (error) {
         console.error('Error fetching volunteers:', error);
-        notifications.show({
-          title: 'Error',
-          message: 'Failed to fetch volunteers',
-          color: 'red',
-          icon: <IconInfoCircle size={16} />,
-          autoClose: 3000,
-        });
       } finally {
         setLoading(false);
       }
@@ -1081,321 +1067,432 @@ import {
       try {
         const volunteer = inboxVolunteers.find(v => v._id === volunteerId);
         if (!volunteer) return;
-
-        const updateData = {
-          ...volunteer,
-          verified: true
-        };
-
-        await axios.put(`${API_BASE_URL}/volunteer/update/${volunteerId}`, updateData);
-        
-        // Refresh the volunteer lists
+        await axios.put(`${API_BASE_URL}/volunteer/update/${volunteerId}`, { ...volunteer, verified: true });
         await fetchVolunteers();
-        
-        notifications.show({
-          title: 'Volunteer Accepted!',
-          message: `${volunteer.first_name} ${volunteer.last_name} has been verified`,
-          color: 'green',
-          icon: <IconCheck size={16} />,
-          autoClose: 3000,
-        });
+        notifications.show({ title: 'Volunteer Accepted!', message: `${volunteer.first_name} ${volunteer.last_name} has been verified`, color: 'green', icon: <IconCheck size={16} />, autoClose: 3000 });
       } catch (error) {
-        console.error('Error accepting volunteer:', error);
-        notifications.show({
-          title: 'Error',
-          message: 'Failed to accept volunteer',
-          color: 'red',
-          icon: <IconInfoCircle size={16} />,
-          autoClose: 3000,
-        });
+        notifications.show({ title: 'Error', message: 'Failed to accept volunteer', color: 'red', autoClose: 3000 });
       }
     };
 
-    // Handle volunteer rejection (decline)
     const handleDeclineVolunteer = async (volunteerId) => {
       try {
         const volunteer = inboxVolunteers.find(v => v._id === volunteerId);
         if (!volunteer) return;
-
         await axios.delete(`${API_BASE_URL}/volunteer/delete/${volunteerId}`);
-        
-        // Refresh the volunteer lists
         await fetchVolunteers();
-        
-        notifications.show({
-          title: 'Volunteer Declined',
-          message: `${volunteer.first_name} ${volunteer.last_name} has been removed`,
-          color: 'orange',
-          icon: <IconInfoCircle size={16} />,
-          autoClose: 3000,
-        });
+        notifications.show({ title: 'Volunteer Declined', message: `${volunteer.first_name} ${volunteer.last_name} has been removed`, color: 'orange', autoClose: 3000 });
       } catch (error) {
-        console.error('Error declining volunteer:', error);
-        notifications.show({
-          title: 'Error',
-          message: 'Failed to decline volunteer',
-          color: 'red',
-          icon: <IconInfoCircle size={16} />,
-          autoClose: 3000,
-        });
+        notifications.show({ title: 'Error', message: 'Failed to decline volunteer', color: 'red', autoClose: 3000 });
       }
     };
-
 
     const handleDeleteVolunteer = async (volunteerId) => {
       try {
         const volunteer = volunteers.find(v => v._id === volunteerId);
         if (!volunteer) return;
-
         await axios.delete(`${API_BASE_URL}/volunteer/delete/${volunteerId}`);
- 
         await fetchVolunteers();
-        
-        notifications.show({
-          title: 'Volunteer Deleted',
-          message: `${volunteer.first_name} ${volunteer.last_name} has been removed`,
-          color: 'red',
-          icon: <IconInfoCircle size={16} />,
-          autoClose: 3000,
-        });
+        notifications.show({ title: 'Volunteer Deleted', message: `${volunteer.first_name} ${volunteer.last_name} has been removed`, color: 'red', autoClose: 3000 });
       } catch (error) {
-        console.error('Error deleting volunteer:', error);
-        notifications.show({
-          title: 'Error',
-          message: 'Failed to delete volunteer',
-          color: 'red',
-          icon: <IconInfoCircle size={16} />,
-          autoClose: 3000,
-        });
+        notifications.show({ title: 'Error', message: 'Failed to delete volunteer', color: 'red', autoClose: 3000 });
       }
     };
 
-    // Fetch volunteers on component mount
-    useEffect(() => {
-      fetchVolunteers();
-    }, []);
+    useEffect(() => { fetchVolunteers(); }, []);
 
     const handleEdit = () => {
-      setEditingSchedule(JSON.parse(JSON.stringify(volunteerSchedule)));
+      setEditingScheduleData(JSON.parse(JSON.stringify(scheduleData)));
       setIsEditing(true);
+    };
+
+    // Check if volunteer is already scheduled at another pantry
+    const checkVolunteerConflict = async (username, dateKey) => {
+      try {
+        const pantryId = getPantryId();
+        const res = await axios.get(`${API_BASE_URL}/pantry/check-user-conflict`, {
+          params: { username, date: dateKey, exclude_pantry_id: pantryId }
+        });
+        return res.data;
+      } catch (e) {
+        return { scheduled: false };
+      }
     };
 
     const handleSave = async () => {
       try {
-        // Enrich schedule with emails and usernames before saving
-        const enriched = (editingSchedule || []).map(shift => ({
-          id: shift.id,
-          time: shift.time,
-          shift: shift.shift,
-          volunteers: (shift.volunteers || []).map(v => {
-            if ((v.email || '').trim() && (v.username || '').trim()) return v;
-            const match = volunteers.find(m => `${m.first_name} ${m.last_name}` === (v.name || ''));
-            return { 
-              name: v.name || '', 
-              role: v.role || '', 
-              email: match?.email || '',
-              username: match?.username || ''
-            };
-          })
-        }));
-
         const pantryId = getPantryId();
-        if (pantryId) {
-          await axios.put(`${API_BASE_URL}/pantry/${pantryId}/schedule/${selectedDate}`, { schedule: enriched });
-        }
+        if (!pantryId) return;
 
-        // Persist a local cache copy as well
-        const updatedSchedules = { ...(scheduleByDate || {}) };
-        updatedSchedules[selectedDate] = enriched;
-        setScheduleByDate(updatedSchedules);
-        localStorage.setItem('volunteer_schedules', JSON.stringify(updatedSchedules));
+        // Enrich volunteers with email/username and check for conflicts
+        const enrichShifts = async (shifts) => {
+          const result = [];
+          for (const shift of shifts) {
+            const enrichedVolunteers = [];
+            for (const v of (shift.volunteers || [])) {
+              if (!v.name || !v.name.trim()) continue;
+              const match = volunteers.find(m => `${m.first_name} ${m.last_name}` === v.name);
+              const username = match?.username || v.username || '';
+              
+              // Check for conflicts
+              if (username) {
+                const conflict = await checkVolunteerConflict(username, selectedDate);
+                if (conflict.scheduled) {
+                  notifications.show({
+                    title: 'Scheduling Conflict',
+                    message: `${v.name} is already scheduled at ${conflict.pantry_name} on this day`,
+                    color: 'red',
+                    autoClose: 5000
+                  });
+                  return null; // Signal conflict
+                }
+              }
+              
+              enrichedVolunteers.push({
+                name: v.name,
+                email: match?.email || v.email || '',
+                username: username
+              });
+            }
+            result.push({
+              id: shift.id,
+              time: shift.time,
+              shift: shift.shift,
+              volunteers: enrichedVolunteers
+            });
+          }
+          return result;
+        };
 
-        setVolunteerSchedule(enriched);
+        const enrichGeneralVolunteers = async (generalVols) => {
+          const result = [];
+          for (const v of generalVols) {
+            if (!v.name || !v.name.trim()) continue;
+            const match = volunteers.find(m => `${m.first_name} ${m.last_name}` === v.name);
+            const username = match?.username || v.username || '';
+            
+            if (username) {
+              const conflict = await checkVolunteerConflict(username, selectedDate);
+              if (conflict.scheduled) {
+                notifications.show({
+                  title: 'Scheduling Conflict',
+                  message: `${v.name} is already scheduled at ${conflict.pantry_name} on this day`,
+                  color: 'red',
+                  autoClose: 5000
+                });
+                return null;
+              }
+            }
+            
+            result.push({
+              name: v.name,
+              email: match?.email || v.email || '',
+              username: username
+            });
+          }
+          return result;
+        };
+
+        const enrichedShifts = await enrichShifts(editingScheduleData.shifts || []);
+        if (enrichedShifts === null) return; // Conflict detected
+        
+        const enrichedGeneral = await enrichGeneralVolunteers(editingScheduleData.general_volunteers || []);
+        if (enrichedGeneral === null) return; // Conflict detected
+
+        const finalSchedule = {
+          shifts: enrichedShifts,
+          general_volunteers: enrichedGeneral
+        };
+
+        await axios.put(`${API_BASE_URL}/pantry/${pantryId}/schedule/${selectedDate}`, { schedule: finalSchedule });
+
+        setScheduleData(finalSchedule);
         setIsEditing(false);
-        if (onScheduleUpdate && selectedDate === todayKey) {
-          onScheduleUpdate(enriched);
-        }
 
-        notifications.show({
-          title: 'Schedule Saved',
-          message: `Saved schedule for ${new Date(selectedDate).toLocaleDateString()}`,
-          color: 'green',
-          icon: <IconCheck size={16} />,
-          autoClose: 3000,
-        });
+        notifications.show({ title: 'Schedule Saved', message: `Saved schedule for ${new Date(selectedDate).toLocaleDateString()}`, color: 'green', icon: <IconCheck size={16} />, autoClose: 3000 });
       } catch (e) {
-      notifications.show({
-        title: 'Save Error',
-        message: 'Failed to save schedule. Please try again.',
-        color: 'red',
-        icon: <IconInfoCircle size={16} />,
-        autoClose: 4000,
-      });
+        notifications.show({ title: 'Save Error', message: 'Failed to save schedule.', color: 'red', autoClose: 4000 });
       }
     };
 
-    const handleCancel = () => {
-      setIsEditing(false);
-    };
+    const handleCancel = () => { setIsEditing(false); };
 
-    const updateVolunteer = (shiftId, volunteerIndex, field, value) => {
-      setEditingSchedule(prev => 
-        prev.map(shift => 
+    // Shift volunteer management (no roles)
+    const updateShiftVolunteer = (shiftId, volunteerIndex, value) => {
+      setEditingScheduleData(prev => ({
+        ...prev,
+        shifts: prev.shifts.map(shift => 
           shift.id === shiftId 
-            ? {
-                ...shift,
-                volunteers: shift.volunteers.map((vol, idx) => {
-                  if (idx !== volunteerIndex) return vol;
-                  if (field === 'name') {
-                    const match = volunteers.find(v => `${v.first_name} ${v.last_name}` === value);
-                    const email = match?.email || '';
-                    const username = match?.username || '';
-                    return { ...vol, name: value, email, username };
-                  }
-                  return { ...vol, [field]: value };
-                })
-              }
+            ? { ...shift, volunteers: shift.volunteers.map((vol, idx) => idx === volunteerIndex ? { ...vol, name: value } : vol) }
             : shift
         )
-      );
+      }));
     };
 
-    const addVolunteer = (shiftId) => {
-      setEditingSchedule(prev => 
-        prev.map(shift => 
+    const addShiftVolunteer = (shiftId) => {
+      setEditingScheduleData(prev => ({
+        ...prev,
+        shifts: prev.shifts.map(shift => 
           shift.id === shiftId 
-            ? {
-                ...shift,
-                volunteers: [...shift.volunteers, { name: "", role: "", email: "", username: "" }]
-              }
+            ? { ...shift, volunteers: [...shift.volunteers, { name: "", email: "", username: "" }] }
             : shift
         )
-      );
+      }));
     };
 
-    const removeVolunteer = (shiftId, volunteerIndex) => {
-      setEditingSchedule(prev => 
-        prev.map(shift => 
+    const removeShiftVolunteer = (shiftId, volunteerIndex) => {
+      setEditingScheduleData(prev => ({
+        ...prev,
+        shifts: prev.shifts.map(shift => 
           shift.id === shiftId 
-            ? {
-                ...shift,
-                volunteers: shift.volunteers.filter((_, idx) => idx !== volunteerIndex)
-              }
+            ? { ...shift, volunteers: shift.volunteers.filter((_, idx) => idx !== volunteerIndex) }
             : shift
         )
-      );
+      }));
     };
 
+    // General volunteer management
+    const addGeneralVolunteer = () => {
+      setEditingScheduleData(prev => ({
+        ...prev,
+        general_volunteers: [...prev.general_volunteers, { name: "", email: "", username: "" }]
+      }));
+    };
+
+    const updateGeneralVolunteer = (index, value) => {
+      setEditingScheduleData(prev => ({
+        ...prev,
+        general_volunteers: prev.general_volunteers.map((vol, idx) => idx === index ? { ...vol, name: value } : vol)
+      }));
+    };
+
+    const removeGeneralVolunteer = (index) => {
+      setEditingScheduleData(prev => ({
+        ...prev,
+        general_volunteers: prev.general_volunteers.filter((_, idx) => idx !== index)
+      }));
+    };
+
+    // Shift management
     const updateShift = (shiftId, field, value) => {
-      setEditingSchedule(prev => 
-        prev.map(shift => 
-          shift.id === shiftId 
-            ? { ...shift, [field]: value }
-            : shift
-        )
-      );
+      setEditingScheduleData(prev => ({
+        ...prev,
+        shifts: prev.shifts.map(shift => shift.id === shiftId ? { ...shift, [field]: value } : shift)
+      }));
     };
 
     const addNewShift = () => {
-      const newId = Math.max(...editingSchedule.map(s => s.id)) + 1;
-      const newShift = {
-        id: newId,
-        time: "New Shift Time",
-        shift: "New Shift Name",
-        volunteers: []
-      };
-      setEditingSchedule(prev => [...prev, newShift]);
+      const maxId = Math.max(0, ...editingScheduleData.shifts.map(s => s.id || 0));
+      setEditingScheduleData(prev => ({
+        ...prev,
+        shifts: [...prev.shifts, { id: maxId + 1, time: "New Shift Time", shift: "New Shift Name", volunteers: [] }]
+      }));
     };
 
     const removeShift = (shiftId) => {
-      setEditingSchedule(prev => prev.filter(shift => shift.id !== shiftId));
+      setEditingScheduleData(prev => ({
+        ...prev,
+        shifts: prev.shifts.filter(shift => shift.id !== shiftId)
+      }));
     };
-
-    //const volunteers = [{name: "Big M", email: "BigM@gmail.com", phone: "9083315271", zip:"08502", dob:"3/11/2011", town: "Belle Mead", state: "NJ", shift:"Mornings", role:"Server", emergencyName: "Mike", emergencyPhone:"9179683021"}]
     
-    // Fetch schedule settings
+    // Fetch and save schedule settings
     const fetchScheduleSettings = async () => {
       try {
         const pantryId = getPantryId();
         if (!pantryId) return;
-        
         const response = await axios.get(`${API_BASE_URL}/pantry/${pantryId}/schedule-settings`);
         if (response.data.settings) {
           setScheduleSettings(response.data.settings);
         }
       } catch (error) {
         console.error('Error fetching schedule settings:', error);
-        // Use defaults if no settings exist yet
       }
     };
     
-    // Save schedule settings
-    const saveScheduleSettings = async () => {
+    const saveScheduleSettings = async (newSettings) => {
       try {
         const pantryId = getPantryId();
         if (!pantryId) return;
-        
-        await axios.put(`${API_BASE_URL}/pantry/${pantryId}/schedule-settings`, {
-          settings: scheduleSettings
-        });
-        
-        notifications.show({
-          title: 'Settings Saved',
-          message: 'Volunteer schedule settings have been updated',
-          color: 'green',
-          icon: <IconCheck size={16} />,
-          autoClose: 3000,
-        });
-        
-        setShowSettingsModal(false);
+        await axios.put(`${API_BASE_URL}/pantry/${pantryId}/schedule-settings`, { settings: newSettings });
+        setScheduleSettings(newSettings);
+        notifications.show({ title: 'Settings Saved', message: 'Schedule settings updated', color: 'green', icon: <IconCheck size={16} />, autoClose: 3000 });
       } catch (error) {
-        console.error('Error saving schedule settings:', error);
-        notifications.show({
-          title: 'Error',
-          message: 'Failed to save settings',
-          color: 'red',
-          icon: <IconInfoCircle size={16} />,
-          autoClose: 3000,
-        });
+        notifications.show({ title: 'Error', message: 'Failed to save settings', color: 'red', autoClose: 3000 });
       }
     };
     
-    // Check if a date is available for scheduling
     const isDateAvailable = (dateString) => {
       const date = new Date(dateString);
       const dayOfWeek = date.getDay();
-      
-      // Check if scheduling is enabled
       if (!scheduleSettings.schedulingEnabled) return false;
-      
-      // Check if day is in open days
       if (!scheduleSettings.openDays.includes(dayOfWeek)) return false;
-      
-      // Check if date is excluded
       if (scheduleSettings.excludedDates.includes(dateString)) return false;
-      
       return true;
     };
     
-    // Load settings on mount
-    useEffect(() => {
-      fetchScheduleSettings();
-    }, []);
+    useEffect(() => { fetchScheduleSettings(); }, []);
+
+    // Default schedule editing
+    const startEditingDefaults = () => {
+      setEditingDefaultSchedule(JSON.parse(JSON.stringify(scheduleSettings.defaultSchedule || [])));
+      setIsEditingDefaults(true);
+    };
+
+    const saveDefaultSchedule = async () => {
+      const newSettings = { ...scheduleSettings, defaultSchedule: editingDefaultSchedule, useDefaultSchedule: true };
+      await saveScheduleSettings(newSettings);
+      setIsEditingDefaults(false);
+    };
+
+    const addDefaultShift = () => {
+      const maxId = Math.max(0, ...editingDefaultSchedule.map(s => s.id || 0));
+      setEditingDefaultSchedule(prev => [...prev, { id: maxId + 1, time: "New Shift Time", shift: "New Shift Name", volunteers: [] }]);
+    };
+
+    const updateDefaultShift = (shiftId, field, value) => {
+      setEditingDefaultSchedule(prev => prev.map(shift => shift.id === shiftId ? { ...shift, [field]: value } : shift));
+    };
+
+    const removeDefaultShift = (shiftId) => {
+      setEditingDefaultSchedule(prev => prev.filter(shift => shift.id !== shiftId));
+    };
     
     return(
       <>
         <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
           <Title order={1}>{`${foodBankName}'s Volunteer Page`}</Title>
         </Paper>
-        <Grid>
+        
+        {/* PROMINENT: Default Schedule Setup Section */}
+        <Paper mt="xl" p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: scheduleSettings.useDefaultSchedule && scheduleSettings.defaultSchedule?.length > 0 ? '#e8f5e9' : '#fff3e0' }}>
+          <Group position="apart" mb="md">
+            <div>
+              <Title order={3}>Default Shifts & Schedule Setup</Title>
+              <Text size="sm" color="dimmed">
+                {scheduleSettings.useDefaultSchedule && scheduleSettings.defaultSchedule?.length > 0 
+                  ? '✓ Default shifts are configured. New days will use this template.'
+                  : '⚠ Set up your default shifts so volunteers know when to sign up!'}
+              </Text>
+            </div>
+            {!isEditingDefaults ? (
+              <Button onClick={startEditingDefaults} color={scheduleSettings.defaultSchedule?.length > 0 ? 'blue' : 'orange'}>
+                {scheduleSettings.defaultSchedule?.length > 0 ? 'Edit Default Shifts' : 'Create Default Shifts'}
+              </Button>
+            ) : (
+              <Group>
+                <Button onClick={saveDefaultSchedule} color="green">Save Defaults</Button>
+                <Button variant="light" onClick={() => setIsEditingDefaults(false)}>Cancel</Button>
+              </Group>
+            )}
+          </Group>
+          
+          {isEditingDefaults ? (
+            <Stack spacing="sm">
+              {editingDefaultSchedule.map((shift) => (
+                <Paper key={shift.id} p="sm" withBorder>
+                  <Group>
+                    <TextInput
+                      size="sm"
+                      placeholder="Shift Name (e.g., Morning Shift)"
+                      value={shift.shift}
+                      onChange={(e) => updateDefaultShift(shift.id, 'shift', e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <TextInput
+                      size="sm"
+                      placeholder="Time (e.g., 8:00 AM - 12:00 PM)"
+                      value={shift.time}
+                      onChange={(e) => updateDefaultShift(shift.id, 'time', e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <Button size="xs" color="red" variant="light" onClick={() => removeDefaultShift(shift.id)}>Remove</Button>
+                  </Group>
+                </Paper>
+              ))}
+              <Button variant="light" onClick={addDefaultShift} style={{ alignSelf: 'flex-start' }}>+ Add Shift</Button>
+              
+              {/* Open Days */}
+              <Paper p="sm" withBorder mt="md">
+                <Text fw={500} mb="xs">Days Open for Volunteers</Text>
+                <Checkbox.Group
+                  value={scheduleSettings.openDays.map(String)}
+                  onChange={(values) => setScheduleSettings({ ...scheduleSettings, openDays: values.map(Number) })}
+                >
+                  <Group>
+                    <Checkbox value="0" label="Sun" />
+                    <Checkbox value="1" label="Mon" />
+                    <Checkbox value="2" label="Tue" />
+                    <Checkbox value="3" label="Wed" />
+                    <Checkbox value="4" label="Thu" />
+                    <Checkbox value="5" label="Fri" />
+                    <Checkbox value="6" label="Sat" />
+                  </Group>
+                </Checkbox.Group>
+              </Paper>
+              
+              {/* Excluded Dates */}
+              <Paper p="sm" withBorder>
+                <Text fw={500} mb="xs">Excluded Dates (Holidays/Closures)</Text>
+                <Stack spacing="xs">
+                  {scheduleSettings.excludedDates.map((date, index) => (
+                    <Group key={index} position="apart">
+                      <Text size="sm">{new Date(date + 'T12:00:00').toLocaleDateString()}</Text>
+                      <Button size="xs" color="red" variant="light" onClick={() => {
+                        setScheduleSettings({ ...scheduleSettings, excludedDates: scheduleSettings.excludedDates.filter((_, i) => i !== index) });
+                      }}>Remove</Button>
+                    </Group>
+                  ))}
+                  <TextInput
+                    type="date"
+                    placeholder="Add excluded date"
+                    onChange={(e) => {
+                      const newDate = e.currentTarget.value;
+                      if (newDate && !scheduleSettings.excludedDates.includes(newDate)) {
+                        setScheduleSettings({ ...scheduleSettings, excludedDates: [...scheduleSettings.excludedDates, newDate] });
+                        e.currentTarget.value = '';
+                      }
+                    }}
+                  />
+                </Stack>
+              </Paper>
+            </Stack>
+          ) : (
+            <>
+              {scheduleSettings.defaultSchedule?.length > 0 ? (
+                <Stack spacing="xs">
+                  {scheduleSettings.defaultSchedule.map((shift) => (
+                    <Paper key={shift.id} p="xs" withBorder style={{ backgroundColor: '#fff' }}>
+                      <Group>
+                        <Text fw={500}>{shift.shift}</Text>
+                        <Text size="sm" color="dimmed">{shift.time}</Text>
+                      </Group>
+                    </Paper>
+                  ))}
+                  <Text size="sm" color="dimmed" mt="xs">
+                    Open days: {scheduleSettings.openDays.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ') || 'None'}
+                  </Text>
+                  {scheduleSettings.excludedDates.length > 0 && (
+                    <Text size="sm" color="dimmed">
+                      Excluded: {scheduleSettings.excludedDates.length} date(s)
+                    </Text>
+                  )}
+                </Stack>
+              ) : (
+                <Alert color="orange" icon={<IconInfoCircle size={16} />}>
+                  No default shifts configured. Click "Create Default Shifts" to set up your volunteer schedule template.
+                </Alert>
+              )}
+            </>
+          )}
+        </Paper>
+
+        <Grid mt="xl">
           <Grid.Col span={6}>
-            <Paper mt={'xl'} p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+            <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
               <Title order={3}>Volunteers</Title>
               {loading ? (
-                <Center p="xl">
-                  <Loader size="md" />
-                  <Text ml="md">Loading volunteers...</Text>
-                </Center>
+                <Center p="xl"><Loader size="md" /><Text ml="md">Loading volunteers...</Text></Center>
               ) : (
                 <>
                   <Table>
@@ -1408,62 +1505,47 @@ import {
                     </Table.Thead>
                     <Table.Tbody>
                       {volunteers.length === 0 ? (
-                        <Table.Tr>
-                          <Table.Td colSpan={3}>
-                            <Center p="md">
-                              <Text color="dimmed">No verified volunteers found</Text>
-                            </Center>
-                          </Table.Td>
-                        </Table.Tr>
+                        <Table.Tr><Table.Td colSpan={3}><Center p="md"><Text color="dimmed">No verified volunteers found</Text></Center></Table.Td></Table.Tr>
                       ) : (
-                        volunteers.map((volunteer, idx)=> (
-                      <Table.Tr key={volunteer._id}>
-                      <Table.Td>{volunteer.first_name} {volunteer.last_name}</Table.Td>
-                      <Table.Td>{volunteer.email}</Table.Td>
-                      <Table.Td><Button variant="light" color="gray" radius="xl" onClick={()=> setSelectedVolunteer(volunteer)}><IconInfoCircle size={20} /></Button></Table.Td>
-                    </Table.Tr>
-                    ))
-                    )}
+                        volunteers.map((volunteer)=> (
+                          <Table.Tr key={volunteer._id}>
+                            <Table.Td>{volunteer.first_name} {volunteer.last_name}</Table.Td>
+                            <Table.Td>{volunteer.email}</Table.Td>
+                            <Table.Td><Button variant="light" color="gray" radius="xl" onClick={()=> setSelectedVolunteer(volunteer)}><IconInfoCircle size={20} /></Button></Table.Td>
+                          </Table.Tr>
+                        ))
+                      )}
                     </Table.Tbody>
                   </Table>
                   
-                  {/* Volunteer Info Modal - Outside the map loop */}
-                  <Modal p={0} opened={selectedVolunteer !== null} onClose={()=> setSelectedVolunteer(null)} centered size="lg" radius="md" padding="lg">
+                  <Modal opened={selectedVolunteer !== null} onClose={()=> setSelectedVolunteer(null)} centered size="lg">
                     {selectedVolunteer && (
-                      <Paper m={0} p="md" radius="md" withBorder style={{ backgroundColor: "#f8fafc" }}>
-                        <Group align="center" mb="md" spacing="lg">
-                          <Avatar size={64} radius="xl" color="blue">
-                            {selectedVolunteer.first_name?.[0]}{selectedVolunteer.last_name?.[0]}
-                          </Avatar>
+                      <Paper p="md" radius="md" withBorder style={{ backgroundColor: "#f8fafc" }}>
+                        <Group align="center" mb="md">
+                          <Avatar size={64} radius="xl" color="blue">{selectedVolunteer.first_name?.[0]}{selectedVolunteer.last_name?.[0]}</Avatar>
                           <div>
-                            <Title order={3} mb={2}>{selectedVolunteer.first_name} {selectedVolunteer.last_name}</Title>
+                            <Title order={3}>{selectedVolunteer.first_name} {selectedVolunteer.last_name}</Title>
                             <Text size="sm" color="dimmed">{selectedVolunteer.email}</Text>
                           </div>
                         </Group>
                         <Grid gutter="md" mb="md">
                           <Grid.Col span={6}>
-                            <Text size="sm" fw={500}><b>Phone:</b> {selectedVolunteer.phone_number}</Text>
-                            <Text size="sm" fw={500}><b>Zip:</b> {selectedVolunteer.zipcode}</Text>
-                            <Text size="sm" fw={500}><b>Date of Birth:</b> {selectedVolunteer.date_of_birth}</Text>
+                            <Text size="sm"><b>Phone:</b> {selectedVolunteer.phone_number}</Text>
+                            <Text size="sm"><b>Zip:</b> {selectedVolunteer.zipcode}</Text>
+                            <Text size="sm"><b>Date of Birth:</b> {selectedVolunteer.date_of_birth}</Text>
                           </Grid.Col>
                           <Grid.Col span={6}>
-                            <Text size="sm" fw={500}><b>Availability:</b> {selectedVolunteer.availability}</Text>
-                            <Text size="sm" fw={500}><b>Roles:</b> {selectedVolunteer.roles}</Text>
-                            <Text size="sm" fw={500}><b>Verified:</b> {selectedVolunteer.verified ? 'Yes' : 'No'}</Text>
+                            <Text size="sm"><b>Availability:</b> {selectedVolunteer.availability}</Text>
                           </Grid.Col>
-                          
                         </Grid>
                         <Paper p="sm" radius="md" withBorder bg="gray.0">
                           <Title order={5} mb={4} color="blue">Emergency Contact</Title>
-                          <Text size="sm" fw={500}><b>Name:</b> {selectedVolunteer.emergency_name}</Text>
-                          <Text size="sm" fw={500}><b>Phone:</b> {selectedVolunteer.emergency_number}</Text>
+                          <Text size="sm"><b>Name:</b> {selectedVolunteer.emergency_name}</Text>
+                          <Text size="sm"><b>Phone:</b> {selectedVolunteer.emergency_number}</Text>
                         </Paper>
                         <Group mt="md">
-                          <Button color='blue' onClick={(e) => window.location.href = `mailto:${selectedVolunteer.email}`}>Email</Button>
-                          <Button color='red' onClick={() => {
-                            handleDeleteVolunteer(selectedVolunteer._id);
-                            setSelectedVolunteer(null);
-                          }}>DELETE</Button>
+                          <Button color='blue' onClick={() => window.location.href = `mailto:${selectedVolunteer.email}`}>Email</Button>
+                          <Button color='red' onClick={() => { handleDeleteVolunteer(selectedVolunteer._id); setSelectedVolunteer(null); }}>DELETE</Button>
                         </Group>
                       </Paper>
                     )}
@@ -1472,88 +1554,56 @@ import {
               )}
             </Paper>
             
-            {/* Inbox Section under Volunteers List */}
-            <Paper mt={'xl'} p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
+            <Paper mt="xl" p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
               <Title order={3} mb="md">Inbox</Title>
               <Button variant="gradient" gradient={{ from: 'teal', to: 'green' }} radius="xl" onClick={()=> setInboxInfo(true)}>
-                Open Inbox
-                {inboxVolunteers.length > 0 && <Badge p={5} m={5} color="red">{inboxVolunteers.length}</Badge>}
+                Open Inbox {inboxVolunteers.length > 0 && <Badge p={5} m={5} color="red">{inboxVolunteers.length}</Badge>}
               </Button>
-              <Modal p={0} opened={inboxInfo} onClose={()=> setInboxInfo(false)} centered size="lg" radius="md" padding="lg">
-                <Paper m={0} p="md" radius="md" withBorder style={{ backgroundColor: "#f8fafc" }}>
+              <Modal opened={inboxInfo} onClose={()=> setInboxInfo(false)} centered size="lg">
+                <Paper p="md" radius="md" withBorder style={{ backgroundColor: "#f8fafc" }}>
                   <Title order={3}>Inbox</Title>
                   {inboxVolunteers.length === 0 ? (
-                    <Center p="xl">
-                      <Text color="dimmed">No pending volunteer applications</Text>
-                    </Center>
+                    <Center p="xl"><Text color="dimmed">No pending volunteer applications</Text></Center>
                   ) : (
                     <Table>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Name</Table.Th>
-                          <Table.Th>Email</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
+                      <Table.Thead><Table.Tr><Table.Th>Name</Table.Th><Table.Th>Email</Table.Th></Table.Tr></Table.Thead>
                       <Table.Tbody>
-                        {inboxVolunteers.map((applicant, idx) => {
-                          // Create a component for each row to manage its own state
+                        {inboxVolunteers.map((applicant) => {
                           function ApplicantRow() {
                             const [expanded, setExpanded] = useState(false);
                             return (
-                            <>
-                              <Table.Tr style={{ cursor: "pointer" }} onClick={() => setExpanded((e) => !e)}>
-                                <Table.Td>
-                                  <Button
-                                    variant="subtle"
-                                    size="xs"
-                                    onClick={e => { e.stopPropagation(); setExpanded(exp => !exp); }}
-                                    style={{ marginRight: 8 }}
-                                  >
-                                    {expanded ? "▼" : "▶"}
-                                  </Button>
-                                  {applicant.first_name} {applicant.last_name}
-                                </Table.Td>
-                                <Table.Td>{applicant.email}</Table.Td>
-                              </Table.Tr>
-                              <tr>
-                                <td colSpan={2} style={{
-                                  background: "#f8fafc",
-                                  padding: 0,
-                                  border: 0,
-                                  height: 0,
-                                  transition: "height 0.3s cubic-bezier(.4,0,.2,1)"
-                                }}>
-                                  <div
-                                    style={{
-                                      maxHeight: expanded ? 500 : 0,
-                                      overflow: "hidden",
-                                      transition: "max-height 0.35s cubic-bezier(.4,0,.2,1), opacity 0.35s cubic-bezier(.4,0,.2,1)",
-                                      opacity: expanded ? 1 : 0,
-                                    }}
-                                  >
-                                    <Paper p="md" radius="md"  style={{ margin: 0, background: "#f8fafc" }}>
-                                      <Grid gutter="md" mb="md">
-                                        <Grid.Col span={6}>
-                                          <Text size="sm" fw={500}><b>Phone:</b> {applicant.phone_number}</Text>
-                                          <Text size="sm" fw={500}><b>Zip:</b> {applicant.zipcode}</Text>
-                                          <Text size="sm" fw={500}><b>Date of Birth:</b> {applicant.date_of_birth}</Text>
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                          <Text size="sm" fw={500}><b>Availability:</b> {applicant.availability}</Text>
-                                          <Text size="sm" fw={500}><b>Roles:</b> {applicant.roles}</Text>
-                                          <Text size="sm" fw={500}><b>Emergency Contact:</b> {applicant.emergency_name} - {applicant.emergency_number}</Text>
-                                        </Grid.Col>
-                                      </Grid>
-                
-                                      <Group mt="md">
-                                        <Button color="green" variant="light" radius="xl" onClick={() => handleAcceptVolunteer(applicant._id)}>Accept</Button>
-                                        <Button color="red" variant="light" radius="xl" onClick={() => handleDeclineVolunteer(applicant._id)}>Decline</Button>
-                                      </Group>
-                                    </Paper>
-                                  </div>
-                                </td>
-                              </tr>
-                            </>
+                              <>
+                                <Table.Tr style={{ cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>
+                                  <Table.Td>
+                                    <Button variant="subtle" size="xs" onClick={e => { e.stopPropagation(); setExpanded(exp => !exp); }} style={{ marginRight: 8 }}>{expanded ? "▼" : "▶"}</Button>
+                                    {applicant.first_name} {applicant.last_name}
+                                  </Table.Td>
+                                  <Table.Td>{applicant.email}</Table.Td>
+                                </Table.Tr>
+                                <tr>
+                                  <td colSpan={2} style={{ background: "#f8fafc", padding: 0, border: 0 }}>
+                                    <div style={{ maxHeight: expanded ? 500 : 0, overflow: "hidden", transition: "max-height 0.3s", opacity: expanded ? 1 : 0 }}>
+                                      <Paper p="md" style={{ background: "#f8fafc" }}>
+                                        <Grid gutter="md" mb="md">
+                                          <Grid.Col span={6}>
+                                            <Text size="sm"><b>Phone:</b> {applicant.phone_number}</Text>
+                                            <Text size="sm"><b>Zip:</b> {applicant.zipcode}</Text>
+                                            <Text size="sm"><b>DOB:</b> {applicant.date_of_birth}</Text>
+                                          </Grid.Col>
+                                          <Grid.Col span={6}>
+                                            <Text size="sm"><b>Availability:</b> {applicant.availability}</Text>
+                                            <Text size="sm"><b>Emergency:</b> {applicant.emergency_name} - {applicant.emergency_number}</Text>
+                                          </Grid.Col>
+                                        </Grid>
+                                        <Group mt="md">
+                                          <Button color="green" variant="light" onClick={() => handleAcceptVolunteer(applicant._id)}>Accept</Button>
+                                          <Button color="red" variant="light" onClick={() => handleDeclineVolunteer(applicant._id)}>Decline</Button>
+                                        </Group>
+                                      </Paper>
+                                    </div>
+                                  </td>
+                                </tr>
+                              </>
                             );
                           }
                           return <ApplicantRow key={applicant._id} />;
@@ -1565,349 +1615,129 @@ import {
               </Modal>
             </Paper>
           </Grid.Col>
-          <Grid.Col mt={'xl'} span={6}>
+          
+          <Grid.Col span={6}>
             <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
               <Group position="apart" mb="md">
-                <Title order={3}>Volunteer Schedule</Title>
+                <Title order={3}>Daily Schedule</Title>
                 <Group spacing="xs">
-                  <Button 
-                    variant="light" 
-                    onClick={() => setShowSettingsModal(true)} 
-                    size="sm"
-                    leftSection={<IconSettings size={16} />}
-                  >
-                    Settings
-                  </Button>
                   {!isEditing ? (
-                    <Button variant="light" onClick={handleEdit} size="sm">
-                      Edit Schedule
-                    </Button>
+                    <Button variant="light" onClick={handleEdit} size="sm">Edit Schedule</Button>
                   ) : (
                     <>
-                      <Button variant="light" onClick={handleSave} color="green" size="sm">
-                        Save
-                      </Button>
-                      <Button variant="light" onClick={handleCancel} color="gray" size="sm">
-                        Cancel
-                      </Button>
+                      <Button variant="light" onClick={handleSave} color="green" size="sm">Save</Button>
+                      <Button variant="light" onClick={handleCancel} color="gray" size="sm">Cancel</Button>
                     </>
                   )}
                 </Group>
               </Group>
 
-              {/* Date selector: today + next 7 days */}
               <Group mb="md">
-                {(() => {
-                  const options = Array.from({ length: 8 }, (_, i) => {
-                    const d = new Date();
-                    d.setDate(d.getDate() + i);
+                <Select
+                  size="sm"
+                  label="Select day"
+                  value={selectedDate}
+                  onChange={(val) => val && setSelectedDate(val)}
+                  data={Array.from({ length: 8 }, (_, i) => {
+                    const d = new Date(); d.setDate(d.getDate() + i);
                     const key = d.toISOString().slice(0, 10);
-                    const label = i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                    return { value: key, label };
-                  });
-                  return (
-                    <Select
-                      size="sm"
-                      label="Select day"
-                      value={selectedDate}
-                      onChange={(val) => val && setSelectedDate(val)}
-                      data={options}
-                      leftSection={<IconCalendar size={16} />}
-                      style={{ maxWidth: 240 }}
-                    />
-                  );
-                })()}
+                    return { value: key, label: i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) };
+                  })}
+                  leftSection={<IconCalendar size={16} />}
+                  style={{ maxWidth: 240 }}
+                />
               </Group>
 
-              {/* Date availability warning */}
               {!scheduleSettings.schedulingEnabled && (
-                <Alert color="yellow" mb="md">
-                  Volunteer scheduling is currently disabled. Enable it in Settings to allow volunteers to sign up.
-                </Alert>
+                <Alert color="yellow" mb="md">Volunteer scheduling is disabled.</Alert>
               )}
               
               {scheduleSettings.schedulingEnabled && !isDateAvailable(selectedDate) && (
                 <Alert color="yellow" mb="md">
-                  {scheduleSettings.excludedDates.includes(selectedDate) 
-                    ? 'This date is marked as excluded (holiday/closed).'
-                    : `${new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long' })} is not an open day for volunteers.`}
+                  {scheduleSettings.excludedDates.includes(selectedDate) ? 'This date is excluded.' : 'This day is not open for volunteers.'}
                 </Alert>
               )}
 
               {isEditing && (
-                <Group mb="md">
-                  <Button 
-                    variant="light" 
-                    color="blue" 
-                    onClick={addNewShift}
-                    size="sm"
-                    leftSection={<IconCheck size={16} />}
-                  >
-                    Add New Shift
-                  </Button>
-                </Group>
+                <Button variant="light" color="blue" onClick={addNewShift} size="sm" mb="md">+ Add Shift</Button>
               )}
 
               <Stack spacing="md">
-                 {(isEditing ? editingSchedule : volunteerSchedule).map((shift) => (
-                   <Paper key={shift.id} p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#fff' }}>
-                     {isEditing ? (
-                       <Group mb="xs" spacing="xs">
-                         <TextInput
-                           size="sm"
-                           placeholder="Shift Time (e.g., 8:00 AM - 12:00 PM)"
-                           value={shift.time}
-                           onChange={(e) => updateShift(shift.id, 'time', e.target.value)}
-                           style={{ flex: 1 }}
-                         />
-                         <TextInput
-                           size="sm"
-                           placeholder="Shift Name"
-                           value={shift.shift}
-                           onChange={(e) => updateShift(shift.id, 'shift', e.target.value)}
-                           style={{ flex: 1 }}
-                         />
-                         <Button
-                           size="xs"
-                           color="red"
-                           variant="light"
-                           onClick={() => removeShift(shift.id)}
-                         >
-                           Remove Shift
-                         </Button>
-                       </Group>
-                     ) : (
-                       <>
-                         <Text fw={700} size="lg" mb="xs">{shift.time}</Text>
-                         <Text size="sm" color="dimmed">{shift.shift}</Text>
-                       </>
-                     )}
-                     <Stack mt="sm" spacing="xs">
-                       {shift.volunteers.map((volunteer, volIndex) => (
-                         <div key={volIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                           {isEditing ? (
-                             <>
-                               <Select
-                                 size="xs"
-                                 placeholder="Select volunteer"
-                                 value={volunteer.name}
-                                 onChange={(value) => updateVolunteer(shift.id, volIndex, 'name', value)}
-                                 style={{ flex: 1 }}
-                                 data={volunteers.map(vol => ({
-                                   value: `${vol.first_name} ${vol.last_name}`,
-                                   label: `${vol.first_name} ${vol.last_name}`
-                                 }))}
-                                 searchable
-                                 clearable
-                               />
-                               <TextInput
-                                 size="xs"
-                                 placeholder="Role"
-                                 value={volunteer.role}
-                                 onChange={(e) => updateVolunteer(shift.id, volIndex, 'role', e.target.value)}
-                                 style={{ flex: 1 }}
-                               />
-                               <Button
-                                 size="xs"
-                                 color="red"
-                                 variant="light"
-                                 onClick={() => removeVolunteer(shift.id, volIndex)}
-                               >
-                                 Remove
-                               </Button>
-                             </>
-                           ) : (
-                             <Text size="sm"><b>{volunteer.name}</b> - {volunteer.role}</Text>
-                           )}
-                         </div>
-                       ))}
-                       {isEditing && (
-                         <Button
-                           size="xs"
-                           variant="light"
-                           onClick={() => addVolunteer(shift.id)}
-                           style={{ alignSelf: 'flex-start' }}
-                         >
-                           + Add Volunteer
-                         </Button>
-                       )}
-                     </Stack>
-                   </Paper>
-                 ))}
-               </Stack>
+                {(isEditing ? editingScheduleData.shifts : scheduleData.shifts).map((shift) => (
+                  <Paper key={shift.id} p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#fff' }}>
+                    {isEditing ? (
+                      <Group mb="xs">
+                        <TextInput size="sm" placeholder="Shift Time" value={shift.time} onChange={(e) => updateShift(shift.id, 'time', e.target.value)} style={{ flex: 1 }} />
+                        <TextInput size="sm" placeholder="Shift Name" value={shift.shift} onChange={(e) => updateShift(shift.id, 'shift', e.target.value)} style={{ flex: 1 }} />
+                        <Button size="xs" color="red" variant="light" onClick={() => removeShift(shift.id)}>Remove</Button>
+                      </Group>
+                    ) : (
+                      <>
+                        <Text fw={700} size="lg">{shift.time}</Text>
+                        <Text size="sm" color="dimmed" mb="xs">{shift.shift}</Text>
+                      </>
+                    )}
+                    <Stack spacing="xs">
+                      {shift.volunteers.filter(v => v.name?.trim()).map((volunteer, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {isEditing ? (
+                            <>
+                              <Select
+                                size="xs"
+                                placeholder="Select volunteer"
+                                value={volunteer.name}
+                                onChange={(value) => updateShiftVolunteer(shift.id, idx, value)}
+                                style={{ flex: 1 }}
+                                data={volunteers.map(vol => ({ value: `${vol.first_name} ${vol.last_name}`, label: `${vol.first_name} ${vol.last_name}` }))}
+                                searchable clearable
+                              />
+                              <Button size="xs" color="red" variant="light" onClick={() => removeShiftVolunteer(shift.id, idx)}>Remove</Button>
+                            </>
+                          ) : (
+                            <Text size="sm">• {volunteer.name}</Text>
+                          )}
+                        </div>
+                      ))}
+                      {isEditing && <Button size="xs" variant="light" onClick={() => addShiftVolunteer(shift.id)}>+ Add Volunteer</Button>}
+                    </Stack>
+                  </Paper>
+                ))}
+                
+                {/* General Volunteers Section */}
+                <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f8f9fa' }}>
+                  <Text fw={700} size="lg" mb="xs">General Volunteers</Text>
+                  <Text size="sm" color="dimmed" mb="md">Volunteers available for the day (no specific shift)</Text>
+                  <Stack spacing="xs">
+                    {(isEditing ? editingScheduleData.general_volunteers : scheduleData.general_volunteers).filter(v => v.name?.trim()).map((volunteer, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {isEditing ? (
+                          <>
+                            <Select
+                              size="xs"
+                              placeholder="Select volunteer"
+                              value={volunteer.name}
+                              onChange={(value) => updateGeneralVolunteer(idx, value)}
+                              style={{ flex: 1 }}
+                              data={volunteers.map(vol => ({ value: `${vol.first_name} ${vol.last_name}`, label: `${vol.first_name} ${vol.last_name}` }))}
+                              searchable clearable
+                            />
+                            <Button size="xs" color="red" variant="light" onClick={() => removeGeneralVolunteer(idx)}>Remove</Button>
+                          </>
+                        ) : (
+                          <Text size="sm">• {volunteer.name}</Text>
+                        )}
+                      </div>
+                    ))}
+                    {isEditing && <Button size="xs" variant="light" onClick={addGeneralVolunteer}>+ Add General Volunteer</Button>}
+                    {!isEditing && scheduleData.general_volunteers.filter(v => v.name?.trim()).length === 0 && (
+                      <Text size="sm" color="dimmed">No general volunteers signed up</Text>
+                    )}
+                  </Stack>
+                </Paper>
+              </Stack>
             </Paper>
           </Grid.Col>
         </Grid>
-        
-        {/* Schedule Settings Modal */}
-        <Modal
-          opened={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-          title="Volunteer Schedule Settings"
-          size="lg"
-          centered
-        >
-          <Stack spacing="md">
-            {/* Enable/Disable Scheduling */}
-            <Paper p="md" withBorder>
-              <Group position="apart">
-                <div>
-                  <Text weight={500}>Enable Volunteer Scheduling</Text>
-                  <Text size="sm" color="dimmed">
-                    Allow volunteers to sign up for shifts
-                  </Text>
-                </div>
-                <Switch
-                  checked={scheduleSettings.schedulingEnabled}
-                  onChange={(e) => setScheduleSettings({
-                    ...scheduleSettings,
-                    schedulingEnabled: e.currentTarget.checked
-                  })}
-                />
-              </Group>
-            </Paper>
-
-            {scheduleSettings.schedulingEnabled && (
-              <>
-                {/* Scheduling Mode */}
-                <Paper p="md" withBorder>
-                  <Text weight={500} mb="xs">Scheduling Mode</Text>
-                  <Radio.Group
-                    value={scheduleSettings.schedulingMode}
-                    onChange={(value) => setScheduleSettings({
-                      ...scheduleSettings,
-                      schedulingMode: value
-                    })}
-                  >
-                    <Stack spacing="xs">
-                      <Radio
-                        value="shifts"
-                        label="Structured Shifts"
-                        description="Define specific time slots with roles"
-                      />
-                      <Radio
-                        value="list"
-                        label="Simple List"
-                        description="Just track who's volunteering each day"
-                      />
-                    </Stack>
-                  </Radio.Group>
-                </Paper>
-
-                {/* Open Days */}
-                <Paper p="md" withBorder>
-                  <Text weight={500} mb="xs">Days Open for Volunteers</Text>
-                  <Text size="sm" color="dimmed" mb="md">
-                    Select which days of the week volunteers can sign up
-                  </Text>
-                  <Checkbox.Group
-                    value={scheduleSettings.openDays.map(String)}
-                    onChange={(values) => setScheduleSettings({
-                      ...scheduleSettings,
-                      openDays: values.map(Number)
-                    })}
-                  >
-                    <Group>
-                      <Checkbox value="0" label="Sunday" />
-                      <Checkbox value="1" label="Monday" />
-                      <Checkbox value="2" label="Tuesday" />
-                      <Checkbox value="3" label="Wednesday" />
-                      <Checkbox value="4" label="Thursday" />
-                      <Checkbox value="5" label="Friday" />
-                      <Checkbox value="6" label="Saturday" />
-                    </Group>
-                  </Checkbox.Group>
-                </Paper>
-
-                {/* Excluded Dates */}
-                <Paper p="md" withBorder>
-                  <Text weight={500} mb="xs">Excluded Dates (Holidays)</Text>
-                  <Text size="sm" color="dimmed" mb="md">
-                    Add dates when scheduling is not available
-                  </Text>
-                  <Stack spacing="xs">
-                    {scheduleSettings.excludedDates.map((date, index) => (
-                      <Group key={index} position="apart">
-                        <Text size="sm">{new Date(date).toLocaleDateString()}</Text>
-                        <Button
-                          size="xs"
-                          color="red"
-                          variant="light"
-                          onClick={() => {
-                            const newDates = scheduleSettings.excludedDates.filter((_, i) => i !== index);
-                            setScheduleSettings({
-                              ...scheduleSettings,
-                              excludedDates: newDates
-                            });
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </Group>
-                    ))}
-                    <TextInput
-                      type="date"
-                      placeholder="Add excluded date"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && e.currentTarget.value) {
-                          const newDate = e.currentTarget.value;
-                          if (!scheduleSettings.excludedDates.includes(newDate)) {
-                            setScheduleSettings({
-                              ...scheduleSettings,
-                              excludedDates: [...scheduleSettings.excludedDates, newDate]
-                            });
-                          }
-                          e.currentTarget.value = '';
-                        }
-                      }}
-                      rightSection={
-                        <Text size="xs" color="dimmed">Press Enter</Text>
-                      }
-                    />
-                  </Stack>
-                </Paper>
-
-                {/* Default Schedule */}
-                {scheduleSettings.schedulingMode === 'shifts' && (
-                  <Paper p="md" withBorder>
-                    <Group position="apart" mb="xs">
-                      <div>
-                        <Text weight={500}>Use Default Schedule</Text>
-                        <Text size="sm" color="dimmed">
-                          Apply the same shift structure to all open days
-                        </Text>
-                      </div>
-                      <Switch
-                        checked={scheduleSettings.useDefaultSchedule}
-                        onChange={(e) => setScheduleSettings({
-                          ...scheduleSettings,
-                          useDefaultSchedule: e.currentTarget.checked
-                        })}
-                      />
-                    </Group>
-                    
-                    {scheduleSettings.useDefaultSchedule && (
-                      <Alert color="blue" mt="md">
-                        The default schedule structure will be automatically applied to all days you're open. 
-                        You can still customize volunteers for each day.
-                      </Alert>
-                    )}
-                  </Paper>
-                )}
-              </>
-            )}
-
-            {/* Save Button */}
-            <Group position="right" mt="md">
-              <Button variant="light" onClick={() => setShowSettingsModal(false)}>
-                Cancel
-              </Button>
-              <Button onClick={saveScheduleSettings}>
-                Save Settings
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
       </>
     )
   }
@@ -2046,7 +1876,6 @@ import {
     // Shared data state for dashboard
     const [volunteers, setVolunteers] = useState([])
     const [inventory, setInventory] = useState([])
-    const [volunteerSchedule, setVolunteerSchedule] = useState([])
     
     // Fetch volunteers from backend
     const fetchVolunteers = async () => {
@@ -2117,27 +1946,6 @@ import {
       fetchInventory();
     }, []);
     
-    // Initialize dashboard's view of today's schedule from localStorage (fallback to defaults)
-    useEffect(() => {
-      const defaultSchedule = [
-        { id: 1, time: "8:00 AM - 12:00 PM", shift: "Morning Shift", volunteers: [] },
-        { id: 2, time: "12:00 PM - 4:00 PM", shift: "Afternoon Shift", volunteers: [] },
-        { id: 3, time: "4:00 PM - 8:00 PM", shift: "Evening Shift", volunteers: [] },
-        { id: 4, time: "On Call", shift: "Backup Volunteers", volunteers: [] }
-      ];
-      try {
-        const stored = JSON.parse(localStorage.getItem('volunteer_schedules') || '{}');
-        const todayKey = new Date().toISOString().slice(0, 10);
-        setVolunteerSchedule(stored[todayKey] || defaultSchedule);
-      } catch (e) {
-        setVolunteerSchedule(defaultSchedule);
-      }
-    }, []);
-    
-    // Callback to update volunteer schedule from Volunteer component
-    const handleScheduleUpdate = (newSchedule) => {
-      setVolunteerSchedule(newSchedule);
-    };
     
     // Save settings function
     const handleSaveSettings = async () => {
@@ -2370,26 +2178,17 @@ import {
           {(() => {
             switch (page) {
               case 'dash':
-                return <DashboardComp 
-                  volunteers={volunteers} 
-                  inventory={inventory} 
-                  volunteerSchedule={volunteerSchedule} 
-                />;
+                return <DashboardComp volunteers={volunteers} inventory={inventory} />;
               case 'inv':
                 return <Inventory foodBankName={foodBankName} />;
               case 'vol':
-                return <Volunteer onScheduleUpdate={handleScheduleUpdate} foodBankName={foodBankName} />;
+                return <Volunteer foodBankName={foodBankName} />;
               case 'stream':
                 return <Stream />
               default:
-                return <DashboardComp 
-                  volunteers={volunteers} 
-                  inventory={inventory} 
-                  volunteerSchedule={volunteerSchedule} 
-                />;
+                return <DashboardComp volunteers={volunteers} inventory={inventory} />;
             }
           })()}
-          
         </AppShell.Main>
       </AppShell>
     )

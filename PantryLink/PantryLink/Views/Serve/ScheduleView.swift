@@ -11,7 +11,7 @@ import MapKit
 struct ScheduleView: View {
     @ObservedObject private var userManager = UserManager.shared
     @State private var pantries: [Pantry] = []
-    @State private var todaysSchedule: [TodaysScheduleItem] = []
+    @State private var userWeekSchedule: [UserWeekScheduleItem] = []
     @State private var isLoading = false
     @State private var selectedPantryId: String?
     @State private var showPantrySchedule = false
@@ -19,17 +19,27 @@ struct ScheduleView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Today's Schedule Section (if user has any)
-                if !todaysSchedule.isEmpty {
+                // Your Week at a Glance Section (only show if user has schedules)
+                if !userWeekSchedule.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Today's Schedule")
+                        Text("Your Week at a Glance")
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(Colors.flexibleBlack)
                             .padding(.horizontal)
                         
-                        ForEach(todaysSchedule) { item in
-                            TodaysScheduleCard(item: item)
+                        Text("Your upcoming volunteer shifts for the next 7 days")
+                            .font(.subheadline)
+                            .foregroundColor(Colors.flexibleDarkGray)
+                            .padding(.horizontal)
+                        
+                        ForEach(userWeekSchedule) { item in
+                            WeekScheduleCard(item: item, onTap: {
+                                if let pantry = pantries.first(where: { $0._id == item.pantry_id }) {
+                                    selectedPantryId = pantry._id
+                                    showPantrySchedule = true
+                                }
+                            })
                         }
                     }
                     .padding(.top)
@@ -40,10 +50,15 @@ struct ScheduleView: View {
                 
                 // All Pantries Section
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(todaysSchedule.isEmpty ? "Volunteer Opportunities" : "All Food Pantries")
+                    Text("Available Opportunities")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(Colors.flexibleBlack)
+                        .padding(.horizontal)
+                    
+                    Text("Tap a pantry to view their schedule and sign up")
+                        .font(.subheadline)
+                        .foregroundColor(Colors.flexibleDarkGray)
                         .padding(.horizontal)
                     
                     if isLoading {
@@ -70,12 +85,19 @@ struct ScheduleView: View {
         .onAppear {
             fetchPantries()
         }
+        .refreshable {
+            await refreshData()
+        }
         .sheet(isPresented: $showPantrySchedule) {
             if let pantryId = selectedPantryId,
                let pantry = pantries.first(where: { $0._id == pantryId }) {
                 PantryScheduleDetailView(pantry: pantry)
             }
         }
+    }
+    
+    private func refreshData() async {
+        fetchPantries()
     }
     
     private func fetchPantries() {
@@ -95,13 +117,16 @@ struct ScheduleView: View {
             }
             
             do {
-                let result = try JSONDecoder().decode([String: [Pantry]].self, from: data)
-                if let fetchedPantries = result["pantries"] {
-                    DispatchQueue.main.async {
-                        self.pantries = fetchedPantries
-                        // After loading pantries, check for user's today schedule
-                        checkTodaysSchedule()
-                    }
+                struct PantryResponse: Codable {
+                    let pantries: [Pantry]
+                    let message: String
+                }
+                
+                let result = try JSONDecoder().decode(PantryResponse.self, from: data)
+                DispatchQueue.main.async {
+                    self.pantries = result.pantries
+                    // After loading pantries, fetch user's week schedule
+                    self.fetchUserWeekSchedule()
                 }
             } catch {
                 print("Error decoding pantries: \(error)")
@@ -109,57 +134,30 @@ struct ScheduleView: View {
         }.resume()
     }
     
-    private func checkTodaysSchedule() {
+    private func fetchUserWeekSchedule() {
         guard let username = userManager.currentUser?.username else { return }
         
-        let today = Date()
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let todayKey = dateFormatter.string(from: today)
+        guard let url = URL(string: "https://yellow-team.onrender.com/pantry/user-schedule/\(username)") else { return }
         
-        var foundSchedules: [TodaysScheduleItem] = []
-        let group = DispatchGroup()
-        
-        for pantry in pantries {
-            group.enter()
-            
-            guard let url = URL(string: "https://yellow-team.onrender.com/pantry/\(pantry._id)/schedule?date=\(todayKey)") else {
-                group.leave()
-                continue
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            guard let data = data, error == nil else {
+                print("Error fetching user schedule: \(error?.localizedDescription ?? "Unknown")")
+                return
             }
             
-            URLSession.shared.dataTask(with: url) { data, response, error in
-                defer { group.leave() }
-                
-                guard let data = data, error == nil else { return }
-                
-                do {
-                    let scheduleResponse = try JSONDecoder().decode(ScheduleResponse.self, from: data)
-                    
-                    // Check if user is in any shift
-                    for shift in scheduleResponse.schedule {
-                        if let volunteer = shift.volunteers.first(where: { $0.username?.lowercased() == username.lowercased() }) {
-                            let item = TodaysScheduleItem(
-                                pantryId: pantry._id,
-                                pantryName: pantry.name,
-                                pantryAddress: pantry.address ?? "",
-                                shift: shift.shift,
-                                time: shift.time,
-                                role: volunteer.role,
-                                date: todayKey
-                            )
-                            foundSchedules.append(item)
-                        }
-                    }
-                } catch {
-                    print("Error decoding schedule for \(pantry.name): \(error)")
+            do {
+                let result = try JSONDecoder().decode(UserWeekScheduleResponse.self, from: data)
+                DispatchQueue.main.async {
+                    // Sort by date
+                    self.userWeekSchedule = result.schedules.sorted { $0.date < $1.date }
                 }
-            }.resume()
-        }
-        
-        group.notify(queue: .main) {
-            self.todaysSchedule = foundSchedules
-        }
+            } catch {
+                print("Error decoding user schedule: \(error)")
+                DispatchQueue.main.async {
+                    self.userWeekSchedule = []
+                }
+            }
+        }.resume()
     }
 }
 
@@ -180,6 +178,19 @@ struct PantryCard: View {
                         .font(.subheadline)
                         .foregroundColor(Colors.flexibleDarkGray)
                 }
+                
+                // Show if scheduling is available
+                if let settings = pantry.schedule_settings {
+                    if settings.isSchedulingEnabled {
+                        Text("Accepting volunteers")
+                            .font(.caption)
+                            .foregroundColor(Colors.flexibleGreen)
+                    } else {
+                        Text("Not accepting volunteers")
+                            .font(.caption)
+                            .foregroundColor(Colors.flexibleDarkGray)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
@@ -195,70 +206,72 @@ struct PantryCard: View {
     }
 }
 
-struct TodaysScheduleCard: View {
-    let item: TodaysScheduleItem
+struct WeekScheduleCard: View {
+    let item: UserWeekScheduleItem
+    let onTap: () -> Void
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(item.pantryName)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(Colors.flexibleBlack)
-                    
-                    HStack(spacing: 4) {
-                        Text(item.shift)
-                            .font(.subheadline)
-                            .foregroundColor(Colors.flexibleBlack)
-                        Text("•")
-                            .foregroundColor(Colors.flexibleDarkGray)
-                        Text(item.time)
-                            .font(.subheadline)
-                            .foregroundColor(Colors.flexibleDarkGray)
-                    }
-                    
-                    Text("Role: \(item.role)")
-                        .font(.subheadline)
-                        .foregroundColor(Colors.flexibleDarkGray)
-                }
-                
-                Spacer()
-                
-                Button(action: {
-                    openDirections(to: item.pantryAddress)
-                }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
-                            .font(.title2)
-                        Text("Directions")
-                            .font(.caption)
-                    }
-                    .foregroundColor(Colors.flexibleOrange)
-                }
-            }
+    var formattedDate: String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        
+        guard let date = dateFormatter.date(from: item.date) else { return item.date }
+        
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInTomorrow(date) {
+            return "Tomorrow"
+        } else {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "EEE, MMM d"
+            return displayFormatter.string(from: date)
         }
-        .padding()
-        .background(Colors.flexibleOrange.opacity(0.1))
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Colors.flexibleOrange, lineWidth: 1.5)
-        )
-        .padding(.horizontal)
     }
     
-    private func openDirections(to address: String) {
-        let geocoder = CLGeocoder()
-        geocoder.geocodeAddressString(address) { placemarks, error in
-            guard let placemark = placemarks?.first,
-                  let location = placemark.location else { return }
-            
-            let mapItem = MKMapItem(placemark: MKPlacemark(coordinate: location.coordinate))
-            mapItem.name = item.pantryName
-            mapItem.openInMaps(launchOptions: [
-                MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
-            ])
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.pantry_name)
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(Colors.flexibleBlack)
+                        
+                        HStack(spacing: 4) {
+                            Text(formattedDate)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(Colors.flexibleOrange)
+                            Text("•")
+                                .foregroundColor(Colors.flexibleDarkGray)
+                            Text(item.shift)
+                                .font(.subheadline)
+                                .foregroundColor(Colors.flexibleBlack)
+                        }
+                        
+                        if !item.time.isEmpty && item.time != "Flexible" {
+                            Text(item.time)
+                                .font(.caption)
+                                .foregroundColor(Colors.flexibleDarkGray)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(Colors.flexibleDarkGray)
+                }
+            }
+            .padding()
+            .background(Colors.flexibleOrange.opacity(0.1))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Colors.flexibleOrange, lineWidth: 1.5)
+            )
         }
+        .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal)
     }
 }

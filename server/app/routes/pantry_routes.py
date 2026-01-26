@@ -399,7 +399,7 @@ def save_schedule_settings(pantry_id):
     except Exception as e:
         return jsonify({"message": "Error saving schedule settings", "error": str(e)}), 400
 
-@pantry_routes.route("/", methods=["GET"])
+@pantry_routes.route("/", methods=["GET"], strict_slashes=False)
 def get_pantries():
     try:
         pantry = pantry_model(current_app.mongo)
@@ -409,6 +409,9 @@ def get_pantries():
         else:
             return jsonify({"pantries":pantries,"message": "Failed to find pantries"}), 404
     except Exception as e:
+        import traceback
+        print(f"Error in get_pantries: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({"pantries":[],"message": "Error grabbing pantries", "error": str(e)}), 400
 
     

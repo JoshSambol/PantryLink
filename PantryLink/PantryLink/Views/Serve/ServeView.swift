@@ -221,6 +221,7 @@ struct ServePageView: View {
             } message: {
                 Text("You need to sign up as a volunteer first before you can view and manage shifts. Would you like to sign up now?")
             }
+            .background(Colors.flexibleWhite.ignoresSafeArea())
         }
     }
     

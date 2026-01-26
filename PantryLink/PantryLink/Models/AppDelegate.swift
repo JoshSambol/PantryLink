@@ -47,7 +47,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, ObservableObject {
         // setting the notification delegate
         UNUserNotificationCenter.current().delegate = self
         
+        // Clear badge on launch
+        application.applicationIconBadgeNumber = 0
+        
         return true
+    }
+    
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // Clear the badge when user opens the app
+        application.applicationIconBadgeNumber = 0
     }
     
     func application(_ application: UIApplication,

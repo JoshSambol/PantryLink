@@ -171,9 +171,9 @@ struct SignUpView: View {
                             )
                             
                             // Call your signup function
-                            let loggedIn = await signUp(user: userData)
+                            let result = await signUp(user: userData)
                             
-                            if (loggedIn == true){
+                            if result.success {
                                 // Store user data in UserManager (without password)
                                 let userToStore = User(
                                     username: userData.username,
@@ -185,6 +185,10 @@ struct SignUpView: View {
                                 )
                                 UserManager.shared.setUser(userToStore)
                                 isLoggedIn = true
+                            } else {
+                                // Show error alert with the message from server
+                                alert_message = result.message ?? "Failed to create account"
+                                show_alert = true
                             }
                         }
                         
@@ -217,6 +221,11 @@ struct SignUpView: View {
                     .padding(.trailing,36)
                 }
             }
+        }
+        .alert("Sign Up Error", isPresented: $show_alert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alert_message)
         }
     }
 }

@@ -18,11 +18,16 @@ def create_pantry():
         username = data.get("username", email)  # Use email as username if not provided
         website = data.get("website")  # Optional website field
 
+        # Check if username already exists (case-insensitive)
+        new_pantry = pantry_model(current_app.mongo)
+        existing_pantry = new_pantry.find_user_by_username(username)
+        if existing_pantry:
+            return jsonify({"message": "Username is already taken. Please choose a different username."}), 409
+
         # Hash the password
         bcrypt = Bcrypt(current_app)
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-        new_pantry = pantry_model(current_app.mongo)
         response = new_pantry.create_pantry(name, address, email, phone_number, hashed_password, username, website)
 
     except Exception as e:

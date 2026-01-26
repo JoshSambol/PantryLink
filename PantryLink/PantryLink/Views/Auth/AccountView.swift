@@ -188,10 +188,12 @@ struct AccountView: View {
                         Text("Nippur Bhavsar")
                         Text("Naisha Singh")
                         Text("Sina Hernandez")
-                        HStack(spacing: 4) {
-                            Text("PantryLink was recognized as a winner of the 2025")
-                            Link("Congressional App Challenge", destination: URL(string: "https://congressionalappchallenge.us")!)
-                        }
+                        Spacer()
+                        (
+                            Text("PantryLink was recognized as a winner of the 2025 ") +
+                            Text("[Congressional App Challenge](https://congressionalappchallenge.us)").foregroundColor(.blue).underline()
+                        )
+                        .padding()
                     }
                 }
             }

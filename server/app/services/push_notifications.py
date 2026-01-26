@@ -6,17 +6,16 @@ Sends push notifications to iOS devices when new stream announcements are made.
 import jwt
 import time
 import json
-import http.client
+import httpx
 import os
-from datetime import datetime, timedelta
 
 
 class APNsService:
     """Service for sending push notifications via Apple Push Notification Service."""
     
     # APNs endpoints
-    APNS_DEVELOPMENT_SERVER = "api.sandbox.push.apple.com"
-    APNS_PRODUCTION_SERVER = "api.push.apple.com"
+    APNS_DEVELOPMENT_SERVER = "https://api.sandbox.push.apple.com"
+    APNS_PRODUCTION_SERVER = "https://api.push.apple.com"
     
     def __init__(self):
         """Initialize the APNs service with credentials from environment variables."""
@@ -102,38 +101,32 @@ class APNsService:
             if data:
                 payload["data"] = data
             
-            payload_json = json.dumps(payload)
-            
             # Get the appropriate server
             server = self.APNS_DEVELOPMENT_SERVER if self.use_sandbox else self.APNS_PRODUCTION_SERVER
-            
-            # Create HTTPS connection
-            conn = http.client.HTTPSConnection(server, 443)
+            url = f"{server}/3/device/{device_token}"
             
             # Set up headers
             headers = {
                 "authorization": f"bearer {self._get_token()}",
                 "apns-topic": self.bundle_id,
                 "apns-push-type": "alert",
-                "apns-priority": "10",  # Immediate delivery
-                "content-type": "application/json",
+                "apns-priority": "10",
             }
             
-            # Send the request
-            path = f"/3/device/{device_token}"
-            conn.request("POST", path, payload_json, headers)
+            # Send the request using HTTP/2
+            with httpx.Client(http2=True) as client:
+                response = client.post(
+                    url,
+                    json=payload,
+                    headers=headers,
+                    timeout=30.0
+                )
             
-            # Get response
-            response = conn.getresponse()
-            response_body = response.read().decode("utf-8")
-            
-            conn.close()
-            
-            if response.status == 200:
+            if response.status_code == 200:
                 print(f"Push notification sent successfully to {device_token[:20]}...")
                 return True, None
             else:
-                error_msg = f"APNs error {response.status}: {response_body}"
+                error_msg = f"APNs error {response.status_code}: {response.text}"
                 print(error_msg)
                 return False, error_msg
                 

@@ -22,7 +22,11 @@ import {
     Badge,
     UnstyledButton,
     Table,
-    Modal
+    Modal,
+    Switch,
+    Radio,
+    Checkbox,
+    Alert
   } from '@mantine/core'
   import { ActionIcon } from '@mantine/core'
   import {
@@ -965,11 +969,6 @@ import {
       }
     ]);
 
-    const [isEditing, setIsEditing] = useState(false);
-    const [editingSchedule, setEditingSchedule] = useState([]);
-    const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
-    const [scheduleByDate, setScheduleByDate] = useState({});
-
     const getDefaultSchedule = () => ([
       {
         id: 1,
@@ -996,6 +995,22 @@ import {
         volunteers: []
       }
     ]);
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [editingSchedule, setEditingSchedule] = useState([]);
+    const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+    const [scheduleByDate, setScheduleByDate] = useState({});
+    
+    // Volunteer Schedule Settings State
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [scheduleSettings, setScheduleSettings] = useState({
+      schedulingEnabled: true,
+      schedulingMode: 'shifts', // 'shifts' or 'list'
+      openDays: [1, 2, 3, 4, 5], // 0=Sunday, 6=Saturday
+      excludedDates: [], // Array of date strings in YYYY-MM-DD format
+      useDefaultSchedule: false,
+      defaultSchedule: getDefaultSchedule()
+    });
 
     const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -1298,6 +1313,75 @@ import {
 
     //const volunteers = [{name: "Big M", email: "BigM@gmail.com", phone: "9083315271", zip:"08502", dob:"3/11/2011", town: "Belle Mead", state: "NJ", shift:"Mornings", role:"Server", emergencyName: "Mike", emergencyPhone:"9179683021"}]
     
+    // Fetch schedule settings
+    const fetchScheduleSettings = async () => {
+      try {
+        const pantryId = getPantryId();
+        if (!pantryId) return;
+        
+        const response = await axios.get(`${API_BASE_URL}/pantry/${pantryId}/schedule-settings`);
+        if (response.data.settings) {
+          setScheduleSettings(response.data.settings);
+        }
+      } catch (error) {
+        console.error('Error fetching schedule settings:', error);
+        // Use defaults if no settings exist yet
+      }
+    };
+    
+    // Save schedule settings
+    const saveScheduleSettings = async () => {
+      try {
+        const pantryId = getPantryId();
+        if (!pantryId) return;
+        
+        await axios.put(`${API_BASE_URL}/pantry/${pantryId}/schedule-settings`, {
+          settings: scheduleSettings
+        });
+        
+        notifications.show({
+          title: 'Settings Saved',
+          message: 'Volunteer schedule settings have been updated',
+          color: 'green',
+          icon: <IconCheck size={16} />,
+          autoClose: 3000,
+        });
+        
+        setShowSettingsModal(false);
+      } catch (error) {
+        console.error('Error saving schedule settings:', error);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to save settings',
+          color: 'red',
+          icon: <IconInfoCircle size={16} />,
+          autoClose: 3000,
+        });
+      }
+    };
+    
+    // Check if a date is available for scheduling
+    const isDateAvailable = (dateString) => {
+      const date = new Date(dateString);
+      const dayOfWeek = date.getDay();
+      
+      // Check if scheduling is enabled
+      if (!scheduleSettings.schedulingEnabled) return false;
+      
+      // Check if day is in open days
+      if (!scheduleSettings.openDays.includes(dayOfWeek)) return false;
+      
+      // Check if date is excluded
+      if (scheduleSettings.excludedDates.includes(dateString)) return false;
+      
+      return true;
+    };
+    
+    // Load settings on mount
+    useEffect(() => {
+      fetchScheduleSettings();
+    }, []);
+    
     return(
       <>
         <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
@@ -1485,20 +1569,30 @@ import {
             <Paper p="md" radius="lg" shadow="xs" withBorder style={{ backgroundColor: '#f1f3f5' }}>
               <Group position="apart" mb="md">
                 <Title order={3}>Volunteer Schedule</Title>
-                {!isEditing ? (
-                  <Button variant="light" onClick={handleEdit} size="sm">
-                    Edit Schedule
+                <Group spacing="xs">
+                  <Button 
+                    variant="light" 
+                    onClick={() => setShowSettingsModal(true)} 
+                    size="sm"
+                    leftSection={<IconSettings size={16} />}
+                  >
+                    Settings
                   </Button>
-                ) : (
-                  <Group spacing="xs">
-                    <Button variant="light" onClick={handleSave} color="green" size="sm">
-                      Save
+                  {!isEditing ? (
+                    <Button variant="light" onClick={handleEdit} size="sm">
+                      Edit Schedule
                     </Button>
-                    <Button variant="light" onClick={handleCancel} color="gray" size="sm">
-                      Cancel
-                    </Button>
-                  </Group>
-                )}
+                  ) : (
+                    <>
+                      <Button variant="light" onClick={handleSave} color="green" size="sm">
+                        Save
+                      </Button>
+                      <Button variant="light" onClick={handleCancel} color="gray" size="sm">
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </Group>
               </Group>
 
               {/* Date selector: today + next 7 days */}
@@ -1524,6 +1618,21 @@ import {
                   );
                 })()}
               </Group>
+
+              {/* Date availability warning */}
+              {!scheduleSettings.schedulingEnabled && (
+                <Alert color="yellow" mb="md">
+                  Volunteer scheduling is currently disabled. Enable it in Settings to allow volunteers to sign up.
+                </Alert>
+              )}
+              
+              {scheduleSettings.schedulingEnabled && !isDateAvailable(selectedDate) && (
+                <Alert color="yellow" mb="md">
+                  {scheduleSettings.excludedDates.includes(selectedDate) 
+                    ? 'This date is marked as excluded (holiday/closed).'
+                    : `${new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long' })} is not an open day for volunteers.`}
+                </Alert>
+              )}
 
               {isEditing && (
                 <Group mb="md">
@@ -1629,6 +1738,176 @@ import {
             </Paper>
           </Grid.Col>
         </Grid>
+        
+        {/* Schedule Settings Modal */}
+        <Modal
+          opened={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          title="Volunteer Schedule Settings"
+          size="lg"
+          centered
+        >
+          <Stack spacing="md">
+            {/* Enable/Disable Scheduling */}
+            <Paper p="md" withBorder>
+              <Group position="apart">
+                <div>
+                  <Text weight={500}>Enable Volunteer Scheduling</Text>
+                  <Text size="sm" color="dimmed">
+                    Allow volunteers to sign up for shifts
+                  </Text>
+                </div>
+                <Switch
+                  checked={scheduleSettings.schedulingEnabled}
+                  onChange={(e) => setScheduleSettings({
+                    ...scheduleSettings,
+                    schedulingEnabled: e.currentTarget.checked
+                  })}
+                />
+              </Group>
+            </Paper>
+
+            {scheduleSettings.schedulingEnabled && (
+              <>
+                {/* Scheduling Mode */}
+                <Paper p="md" withBorder>
+                  <Text weight={500} mb="xs">Scheduling Mode</Text>
+                  <Radio.Group
+                    value={scheduleSettings.schedulingMode}
+                    onChange={(value) => setScheduleSettings({
+                      ...scheduleSettings,
+                      schedulingMode: value
+                    })}
+                  >
+                    <Stack spacing="xs">
+                      <Radio
+                        value="shifts"
+                        label="Structured Shifts"
+                        description="Define specific time slots with roles"
+                      />
+                      <Radio
+                        value="list"
+                        label="Simple List"
+                        description="Just track who's volunteering each day"
+                      />
+                    </Stack>
+                  </Radio.Group>
+                </Paper>
+
+                {/* Open Days */}
+                <Paper p="md" withBorder>
+                  <Text weight={500} mb="xs">Days Open for Volunteers</Text>
+                  <Text size="sm" color="dimmed" mb="md">
+                    Select which days of the week volunteers can sign up
+                  </Text>
+                  <Checkbox.Group
+                    value={scheduleSettings.openDays.map(String)}
+                    onChange={(values) => setScheduleSettings({
+                      ...scheduleSettings,
+                      openDays: values.map(Number)
+                    })}
+                  >
+                    <Group>
+                      <Checkbox value="0" label="Sunday" />
+                      <Checkbox value="1" label="Monday" />
+                      <Checkbox value="2" label="Tuesday" />
+                      <Checkbox value="3" label="Wednesday" />
+                      <Checkbox value="4" label="Thursday" />
+                      <Checkbox value="5" label="Friday" />
+                      <Checkbox value="6" label="Saturday" />
+                    </Group>
+                  </Checkbox.Group>
+                </Paper>
+
+                {/* Excluded Dates */}
+                <Paper p="md" withBorder>
+                  <Text weight={500} mb="xs">Excluded Dates (Holidays)</Text>
+                  <Text size="sm" color="dimmed" mb="md">
+                    Add dates when scheduling is not available
+                  </Text>
+                  <Stack spacing="xs">
+                    {scheduleSettings.excludedDates.map((date, index) => (
+                      <Group key={index} position="apart">
+                        <Text size="sm">{new Date(date).toLocaleDateString()}</Text>
+                        <Button
+                          size="xs"
+                          color="red"
+                          variant="light"
+                          onClick={() => {
+                            const newDates = scheduleSettings.excludedDates.filter((_, i) => i !== index);
+                            setScheduleSettings({
+                              ...scheduleSettings,
+                              excludedDates: newDates
+                            });
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </Group>
+                    ))}
+                    <TextInput
+                      type="date"
+                      placeholder="Add excluded date"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.currentTarget.value) {
+                          const newDate = e.currentTarget.value;
+                          if (!scheduleSettings.excludedDates.includes(newDate)) {
+                            setScheduleSettings({
+                              ...scheduleSettings,
+                              excludedDates: [...scheduleSettings.excludedDates, newDate]
+                            });
+                          }
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      rightSection={
+                        <Text size="xs" color="dimmed">Press Enter</Text>
+                      }
+                    />
+                  </Stack>
+                </Paper>
+
+                {/* Default Schedule */}
+                {scheduleSettings.schedulingMode === 'shifts' && (
+                  <Paper p="md" withBorder>
+                    <Group position="apart" mb="xs">
+                      <div>
+                        <Text weight={500}>Use Default Schedule</Text>
+                        <Text size="sm" color="dimmed">
+                          Apply the same shift structure to all open days
+                        </Text>
+                      </div>
+                      <Switch
+                        checked={scheduleSettings.useDefaultSchedule}
+                        onChange={(e) => setScheduleSettings({
+                          ...scheduleSettings,
+                          useDefaultSchedule: e.currentTarget.checked
+                        })}
+                      />
+                    </Group>
+                    
+                    {scheduleSettings.useDefaultSchedule && (
+                      <Alert color="blue" mt="md">
+                        The default schedule structure will be automatically applied to all days you're open. 
+                        You can still customize volunteers for each day.
+                      </Alert>
+                    )}
+                  </Paper>
+                )}
+              </>
+            )}
+
+            {/* Save Button */}
+            <Group position="right" mt="md">
+              <Button variant="light" onClick={() => setShowSettingsModal(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveScheduleSettings}>
+                Save Settings
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </>
     )
   }

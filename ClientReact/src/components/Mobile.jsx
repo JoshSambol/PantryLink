@@ -1,6 +1,7 @@
 import { Box, Button, Title, Text, Image, Paper, Flex, Group, Badge, Stack, Container } from "@mantine/core";
 import { motion } from "framer-motion"
 import appstore from "../assets/appstore.svg"
+import Logo from "../assets/Logo.png"
 
 function Mobile() {
     return (
@@ -38,12 +39,24 @@ function Mobile() {
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ duration: 0.6, delay: 0.2 }}
                             >
-                                <Title order={1} size="2.5rem" fw={800} style={{ color: 'white', marginBottom: '0.5rem' }}>
-                                    PantryLink Mobile
-                                </Title>
-                                <Text size="lg" style={{ color: 'white', opacity: 0.9 }}>
-                                    Connect with your community on the go
-                                </Text>
+                                <Flex align="center" justify="center" gap="sm" mb="md" wrap="wrap" direction="column">
+                                    <Image 
+                                        src={Logo} 
+                                        alt="PantryLink Logo" 
+                                        w={58} 
+                                        h={58} 
+                                        fit="contain"
+                                        style={{ borderRadius: '10px', marginBottom: '0.5rem' }} 
+                                    />
+                                    <div style={{ textAlign: 'center' }}>
+                                        <Title order={1} size="2.5rem" fw={800} style={{ color: 'white', marginBottom: '0.5rem' }}>
+                                            PantryLink Mobile
+                                        </Title>
+                                        <Text size="lg" style={{ color: 'white', opacity: 0.9 }}>
+                                            Connect with your community on the go
+                                        </Text>
+                                    </div>
+                                </Flex>
                             </motion.div>
 
                             {/* App Store Download Section */}
@@ -52,42 +65,53 @@ function Mobile() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.6, delay: 0.4 }}
                             >
-                                <Text size="xl" fw={700} style={{ color: 'white', marginBottom: '1rem' }}>
-                                    Download Our Mobile App
-                                </Text>
-                                <Text size="md" style={{ color: 'white', opacity: 0.9, marginBottom: '2rem' }}>
-                                    Available on iOS devices only.
-                                </Text>
+                                <Flex align="center" justify="center" gap="sm" wrap="wrap" direction="column">
+                                    <Image 
+                                        src={Logo} 
+                                        alt="PantryLink Logo" 
+                                        w={48} 
+                                        h={48} 
+                                        fit="contain"
+                                        style={{ borderRadius: '8px', marginBottom: '0.5rem' }} 
+                                    />
+                                    <div style={{ textAlign: 'center' }}>
+                                        <Text size="xl" fw={700} style={{ color: 'white', marginBottom: '0.5rem' }}>
+                                            Download Our Mobile App
+                                        </Text>
+                                        <Text size="md" style={{ color: 'white', opacity: 0.9, marginBottom: '0.75rem' }}>
+                                            Available on iOS devices only.
+                                        </Text>
+                                    </div>
+                                </Flex>
 
-                                <Group justify="center" gap="lg" wrap="wrap">
+                                <Group justify="center" gap="xs" wrap="wrap" mt="xs">
                                     {/* App Store Badge */}
-                                    <motion.div
-                                        whileHover={{ scale: 1.05, y: -5 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        transition={{ duration: 0.2 }}
-                                        style={{ cursor: 'pointer' }}
+                                    <a 
+                                      href="http://apps.apple.com/us/app/pantrylink/id6754800608" 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      style={{ textDecoration: 'none', display: 'inline-block' }}
                                     >
-                                        <Paper
-                                            p="md"
-                                            radius="md"
-                                            style={{
-                                                background: 'rgba(255, 255, 255, 0.1)',
-                                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                                backdropFilter: 'blur(10px)',
-                                                transition: 'all 0.3s ease'
-                                            }}
-                                        >
-                                            <Flex align="center" gap="md">
-                                                <Image 
-                                                    src={appstore} 
-                                                    alt="Download on App Store" 
-                                                    width={100} 
-                                                    height="auto"
-                                                    style={{ filter: 'brightness(1) invert(1)' }}
-                                                />
-                                            </Flex>
-                                        </Paper>
-                                    </motion.div>
+                                      <motion.div
+                                          whileHover={{ scale: 1.05, y: -5 }}
+                                          whileTap={{ scale: 0.95 }}
+                                          transition={{ duration: 0.2 }}
+                                          style={{ cursor: 'pointer', padding: '0' }}
+                                      >
+                                          <Image 
+                                              src={appstore} 
+                                              alt="Download on App Store" 
+                                              width={160} 
+                                              height="auto"
+                                              style={{ 
+                                                  filter: 'brightness(1) invert(1)',
+                                                  display: 'block',
+                                                  margin: '-15px 0 -12px 0',
+                                                  padding: '0'
+                                              }}
+                                          />
+                                      </motion.div>
+                                    </a>
 
                                     
                                 </Group>

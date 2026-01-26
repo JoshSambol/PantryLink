@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import homePageBottom from '../assets/homePageBottom.png'
 import homePageTop from '../assets/homePageTop.png'
 import appstore from '../assets/appstore.svg'
+import Logo from '../assets/Logo.png'
 import { useEffect, useRef, forwardRef, useState } from 'react'
 import { motion } from 'framer-motion'
 
@@ -122,10 +123,10 @@ const MobileEx = forwardRef((props, ref) => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.8, delay: 1.2 }}
-                style={{ marginTop: '2rem', width: '100%' }}
+                style={{ marginTop: '1rem', width: '100%' }}
               >
                 <Paper
-                  p="xl"
+                  p="md"
                   radius="lg"
                   shadow="md"
                   style={{
@@ -136,27 +137,39 @@ const MobileEx = forwardRef((props, ref) => {
                     margin: '0 auto'
                   }}
                 >
-                  <Stack spacing={4} align="center" style={{ width: '100%' }}>
+                  <Stack spacing={0} align="center" style={{ width: '100%' }}>
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       whileInView={{ opacity: 1, scale: 1 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: 1.4 }}
-                      style={{ width: '100%' }}
+                      style={{ width: '100%', marginBottom: '0.5rem' }}
                     >
-                      <Text 
-                        size="xl" 
-                        fw={700} 
-                        style={{ color: 'white', textAlign: 'center', marginBottom: 2 }}
-                      >
-                        Download PantryLink Mobile
-                      </Text>
-                      <Text 
-                        size="md" 
-                        style={{ color: 'white', opacity: 0.9, textAlign: 'center', marginBottom: 2 }}
-                      >
-                        Available on iOS devices only.
-                      </Text>
+                      <Flex align="center" justify="center" gap="sm" wrap="wrap" direction="column">
+                        <Image 
+                          src={Logo} 
+                          alt="PantryLink Logo" 
+                          w={52} 
+                          h={52} 
+                          fit="contain"
+                          style={{ borderRadius: '10px', marginBottom: '0.5rem' }} 
+                        />
+                        <div>
+                          <Text 
+                            size="xl" 
+                            fw={700} 
+                            style={{ color: 'white', textAlign: 'center', marginBottom: '0.25rem' }}
+                          >
+                            Download PantryLink Mobile
+                          </Text>
+                          <Text 
+                            size="md" 
+                            style={{ color: 'white', opacity: 0.9, textAlign: 'center', marginBottom: 0 }}
+                          >
+                            Available on iOS devices only.
+                          </Text>
+                        </div>
+                      </Flex>
                     </motion.div>
 
                     <motion.div
@@ -164,27 +177,36 @@ const MobileEx = forwardRef((props, ref) => {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: 1.6 }}
-                      style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: 2 }}
+                      style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}
                     >
                         {/* App Store Badge */}
-                        <motion.div
-                          whileHover={{ scale: 1.05, y: -5 }}
-                          whileTap={{ scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                          style={{ cursor: 'pointer', display: 'inline-block' }}
+                        <a 
+                          href="http://apps.apple.com/us/app/pantrylink/id6754800608" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ textDecoration: 'none', display: 'inline-block' }}
                         >
-                              <Image 
-                                src={appstore} 
-                                alt="Download on App Store" 
-                                style={{ 
-                                  filter: 'brightness(1) invert(1)', 
-                                  width: '250px', 
-                                  maxWidth: '100%', 
-                                  height: 'auto', 
-                                  display: 'block' 
-                                }}
-                              />
-                        </motion.div>
+                          <motion.div
+                            whileHover={{ scale: 1.05, y: -5 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ cursor: 'pointer', display: 'inline-block', padding: '0' }}
+                          >
+                                <Image 
+                                  src={appstore} 
+                                  alt="Download on App Store" 
+                                  style={{ 
+                                    filter: 'brightness(1) invert(1)', 
+                                    width: '200px', 
+                                    maxWidth: '100%', 
+                                    height: 'auto', 
+                                    display: 'block',
+                                    margin: '-20px 0 -15px 0',
+                                    padding: '0'
+                                  }}
+                                />
+                          </motion.div>
+                        </a>
                     </motion.div>
 
                     {/* App Features */}
@@ -193,7 +215,7 @@ const MobileEx = forwardRef((props, ref) => {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: 1.8 }}
-                      style={{ width: '100%' }}
+                      style={{ width: '100%', marginTop: '0.5rem' }}
                     >
                       <Group justify="center" gap={8} wrap="wrap">
                         <Badge 

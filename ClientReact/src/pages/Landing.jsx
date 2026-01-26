@@ -11,6 +11,7 @@ import Privacy from './Privacy'
 import VolunteerEx from '../components/VolunteerEx'
 import JFCS from '../assets/JFCS.png'
 import Somerset from '../assets/Somerset.png'
+import Logo from '../assets/Logo.png'
 function Landing() {
     const MobileExRef = useRef(null);
     const navigate = useNavigate();
@@ -27,6 +28,47 @@ function Landing() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
         >
+          {/* Header Alert */}
+          <Paper
+            p="xs"
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: 0,
+              textAlign: 'center'
+            }}
+          >
+            <Flex align="center" justify="center" gap="sm" wrap="wrap">
+              <Image 
+                src={Logo} 
+                alt="PantryLink Logo" 
+                w={42} 
+                h={42} 
+                fit="contain"
+                style={{ borderRadius: '8px', flexShrink: 0 }} 
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Text size="lg" fw={600} c="white" mb={4}>
+                  PantryLink - Now available on the iOS App Store!
+                </Text>
+                <Text size="md" c="white" mb={0}>
+                  Download our mobile app today!{' '}
+                  <a 
+                    href="http://apps.apple.com/us/app/pantrylink/id6754800608" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ 
+                      color: 'white', 
+                      textDecoration: 'underline',
+                      fontWeight: 600
+                    }}
+                  >
+                    Get it on the App Store
+                  </a>
+                </Text>
+              </div>
+            </Flex>
+          </Paper>
           <Flex   
               mih={50}
               gap="xl"

@@ -1,5 +1,5 @@
 import {forwardRef, useRef} from 'react'
-import { Container, Title, Text, Button, Center, Image, Flex, Paper } from '@mantine/core'
+import { Container, Title, Text, Button, Center, Image, Flex, Paper, Box } from '@mantine/core'
 import { useNavigate } from 'react-router-dom'
 import InventoryExImg from '../assets/InventoryExample.png'
 import { motion } from 'framer-motion'
@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 const InventoryEx = forwardRef((props, ref) => {
     const navigate = useNavigate()
     return (
+        <Box component="section" aria-label="Food Bank Inventory Management Dashboard">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           whileInView={{ opacity: 1, scale: 1 }}
@@ -63,13 +64,14 @@ const InventoryEx = forwardRef((props, ref) => {
                     whileHover={{ scale: 1.05, y: -5 }}
                     style={{ cursor: 'pointer' }}
                   >
-                    <Text 
+                    <Title 
+                      order={2}
                       size="2em"
                       fw={900}
                       style={{ color: 'white' }}
                     >
-                      Manage and publish your inventory
-                    </Text>
+                      Food Bank Inventory Management Made Easy
+                    </Title>
                   </motion.div>
                   <motion.div
                     initial={{ opacity: 0, y: 30 }}
@@ -82,9 +84,10 @@ const InventoryEx = forwardRef((props, ref) => {
                     <Text 
                       size="3em"
                       fw={900}
+                      component="p"
                       style={{ color: 'white', opacity: 0.9 }}
                     >
-                      Using our intuitive dashboard
+                      Track and publish food inventory with our intuitive dashboard
                     </Text>
                   </motion.div>
                   <motion.div
@@ -95,7 +98,7 @@ const InventoryEx = forwardRef((props, ref) => {
                     whileHover={{ scale: 1.1, rotate: 2 }}
                     style={{ cursor: 'pointer' }}
                   >
-                    <Image h={400} w={'auto'} alt='inventoryEx' src={InventoryExImg} />
+                    <Image h={400} w={'auto'} alt='PantryLink food bank inventory management dashboard showing real-time stock levels and donation tracking' src={InventoryExImg} />
                   </motion.div>
                 </Flex>
               </motion.div>
@@ -103,6 +106,7 @@ const InventoryEx = forwardRef((props, ref) => {
           </Paper>
             </motion.div>
         </motion.div>
+        </Box>
     )
 })
 export default InventoryEx;

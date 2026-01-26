@@ -1,4 +1,4 @@
-import { Container, Title, Text, Button, Center, Image, Flex, Paper, Group, Badge, Stack } from '@mantine/core'
+import { Container, Title, Text, Button, Center, Image, Flex, Paper, Group, Badge, Stack, Box } from '@mantine/core'
 import { useNavigate } from 'react-router-dom'
 import homePageBottom from '../assets/homePageBottom.png'
 import homePageTop from '../assets/homePageTop.png'
@@ -11,6 +11,7 @@ const MobileEx = forwardRef((props, ref) => {
     const navigate = useNavigate()
 
     return (
+        <Box component="section" aria-label="PantryLink Mobile App for Food Banks">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           whileInView={{ opacity: 1, scale: 1 }}
@@ -53,13 +54,14 @@ const MobileEx = forwardRef((props, ref) => {
                 whileHover={{ scale: 1.05, y: -5 }}
                 style={{ cursor: 'pointer' }}
               >
-                <Text 
+                <Title 
+                  order={2}
                   size="2em"
                   fw={900}
                   style={{ color: 'white', textAlign: 'center' }}
                 >
-                  Seamlessly connect to clients
-                </Text>
+                  Connect Food Banks to Clients Seamlessly
+                </Title>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
@@ -72,9 +74,10 @@ const MobileEx = forwardRef((props, ref) => {
                 <Text 
                   size="3em"
                   fw={900}
+                  component="p"
                   style={{ color: 'white', opacity: 0.9, textAlign: 'center' }}
                 >
-                  Through our state-of-the-art mobile app
+                  Through our free iOS mobile app for food pantries
                 </Text>
               </motion.div>
               
@@ -101,7 +104,7 @@ const MobileEx = forwardRef((props, ref) => {
                       whileHover={{ scale: 1.1, y: -15, rotate: -2 }}
                       style={{ cursor: 'pointer' }}
                     >
-                      <Image h={400} w={'auto'} src={homePageTop} />
+                      <Image h={400} w={'auto'} src={homePageTop} alt="PantryLink iOS mobile app home screen showing food bank inventory and donation tracking" />
                     </motion.div>
                     <motion.div
                       initial={{ opacity: 0, x: 50 }}
@@ -111,7 +114,7 @@ const MobileEx = forwardRef((props, ref) => {
                       whileHover={{ scale: 1.1, y: -15, rotate: 2 }}
                       style={{ cursor: 'pointer' }}
                     >
-                      <Image h={400} w={'auto'} src={homePageBottom} />
+                      <Image h={400} w={'auto'} src={homePageBottom} alt="PantryLink mobile app showing real-time food pantry updates and notifications" />
                     </motion.div>
                   </Flex>
                 </motion.div>
@@ -181,7 +184,7 @@ const MobileEx = forwardRef((props, ref) => {
                     >
                         {/* App Store Badge */}
                         <a 
-                          href="http://apps.apple.com/us/app/pantrylink/id6754800608" 
+                          href="https://apps.apple.com/us/app/pantrylink/id6754800608" 
                           target="_blank" 
                           rel="noopener noreferrer"
                           style={{ textDecoration: 'none', display: 'inline-block' }}
@@ -262,6 +265,7 @@ const MobileEx = forwardRef((props, ref) => {
             </Paper>
           </motion.div>
         </motion.div>
+        </Box>
     )
 })
 

@@ -12,6 +12,8 @@ function Hero({ onScrollClick1, onScrollClick2, onScrollClick3 }) {
   const [isTypeLoop, setIsTypeLoop] = useState(0);
   return (
     <Box
+      component="section"
+      aria-label="PantryLink - Food Bank Management Software Hero Section"
       style={{
         position: 'relative',
         overflow: 'hidden',
@@ -60,8 +62,11 @@ function Hero({ onScrollClick1, onScrollClick2, onScrollClick3 }) {
             transition={{ duration: 1 }}
           >
             <Title order={1} size="3rem" style={{ fontWeight: 800 }}>
-              One Platform. Every Tool Your Food Bank Needs.
+              PantryLink: One Platform. Every Tool Your Food Bank Needs.
             </Title>
+            <Text component="p" visibleFrom="xs" style={{ display: 'none' }}>
+              Free food bank management software for inventory tracking, volunteer scheduling, donation management, and client communication. Available on iOS.
+            </Text>
             <TextAnimate.Typewriter
               onTypeEnd={() => {
                 setIsTypeEnd((prev) => prev + 1);
@@ -72,6 +77,7 @@ function Hero({ onScrollClick1, onScrollClick2, onScrollClick3 }) {
               fw={700}
               size="xl"
               pauseDelay={1000}
+              aria-label="PantryLink helps food banks track donations, manage inventory, support communities, and schedule volunteers"
               value={[
                 'Track donations',
                 'Manage inventory',
@@ -85,8 +91,13 @@ function Hero({ onScrollClick1, onScrollClick2, onScrollClick3 }) {
               transition={{ type: 'spring', stiffness: 300 }}
               style={{ marginTop: '2rem' }}
             >
-              <Button size="lg" color="dark" onClick={() => navigate('/signin')}>
-                Get Started
+              <Button 
+                size="lg" 
+                color="dark" 
+                onClick={() => navigate('/signin')}
+                aria-label="Get started with PantryLink - free food bank management software"
+              >
+                Get Started Free
               </Button>
             </motion.div>
           </motion.div>
@@ -108,7 +119,7 @@ function Hero({ onScrollClick1, onScrollClick2, onScrollClick3 }) {
               objectFit: 'contain',
               boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
             }}
-            alt="Example"
+            alt="PantryLink food bank management dashboard showing inventory tracking and volunteer scheduling interface"
           />
         </motion.div>
       </Flex>

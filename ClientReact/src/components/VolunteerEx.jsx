@@ -1,10 +1,10 @@
-import { Center, Flex, Space, Text, Container, Group, Paper, Image } from '@mantine/core'
+import { Center, Flex, Space, Text, Container, Group, Paper, Image, Box, Title } from '@mantine/core'
 import { motion } from 'framer-motion'
 import VolunteerExImg from '../assets/VolunteerEx.png'
 
 export default function VolunteerEx() {
     return (
-        
+        <Box component="section" aria-label="Volunteer Management System for Food Banks">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           whileInView={{ opacity: 1, scale: 1 }}
@@ -48,13 +48,14 @@ export default function VolunteerEx() {
               whileHover={{ scale: 1.05, y: -5 }}
               style={{ cursor: 'pointer' }}
             >
-              <Text 
+              <Title 
+                order={2}
                 size="2em"
                 fw={900}
                 style={{ color: 'white', textAlign: 'center' }}
               >
-                Get more community involvement
-              </Text>
+                Food Bank Volunteer Scheduling & Management
+              </Title>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -67,9 +68,10 @@ export default function VolunteerEx() {
               <Text 
                 size="3em"
                 fw={900}
+                component="p"
                 style={{ color: 'white', opacity: 0.9, textAlign: 'center' }}
               >
-                Through our all-in-one volunteer management system
+                Boost community involvement with our all-in-one volunteer management system
               </Text>
             </motion.div>
             <Center>
@@ -97,7 +99,7 @@ export default function VolunteerEx() {
                   >
                     <Image 
                       src={VolunteerExImg} 
-                      alt="VolunteerEx" 
+                      alt="PantryLink volunteer scheduling dashboard showing shift management and volunteer hour tracking for food banks" 
                       style={{ width: '40rem', height: 'auto', maxWidth: '40rem', objectFit: 'contain' }} 
                     />
                   </motion.div>
@@ -106,6 +108,7 @@ export default function VolunteerEx() {
             </Center>
           </Paper>
             </motion.div>
-        </motion.div>   
+        </motion.div>
+        </Box>   
     )
 }

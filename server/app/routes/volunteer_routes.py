@@ -10,6 +10,7 @@ volunteer_routes = Blueprint("volunteer_routes", __name__)
 def create_volunteer():
     try:
         data = request.get_json()
+        username = data["username"]
         first_name = data["first_name"]
         last_name = data["last_name"]
         date_of_birth = data["date_of_birth"]
@@ -24,7 +25,7 @@ def create_volunteer():
         
         new_volunteer = volunteer_model(current_app.mongo)
 
-        response = new_volunteer.create_volunteer(first_name, last_name, date_of_birth, email, phone_number, zipcode, roles, availability, emergency_name, emergency_number, verified)
+        response = new_volunteer.create_volunteer(username, first_name, last_name, date_of_birth, email, phone_number, zipcode, roles, availability, emergency_name, emergency_number, verified)
 
     except Exception as e:
         return jsonify({"message": "Error creating volunteer", "error": str(e)}), 400
@@ -41,6 +42,7 @@ def update_volunteer(volunteer_id):
         data = request.get_json()
 
         update_data = {
+            "username": data["username"],
             "first_name": data["first_name"],
             "last_name": data["last_name"],
             "date_of_birth": data["date_of_birth"],

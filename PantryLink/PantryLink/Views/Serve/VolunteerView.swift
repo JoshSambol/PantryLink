@@ -13,6 +13,7 @@ struct VolunteerPageView: View {
     @Binding var path: NavigationPath
     
     //form 1 data fields
+    @State var username: String = ""
     @State var first_name: String = ""
     @State var last_name: String = ""
     @State var date_of_birth: String = ""
@@ -40,6 +41,7 @@ struct VolunteerPageView: View {
         NavigationStack(path: $path) {
             VolunteerContentView(
                 userManager: userManager,
+                username: $username,
                 first_name: $first_name,
                 last_name: $last_name,
                 date_of_birth: $date_of_birth,
@@ -71,6 +73,7 @@ struct VolunteerView: View {
     @Binding var path: NavigationPath
     
     //form 1 data fields
+    @State var username: String = ""
     @State var first_name: String = ""
     @State var last_name: String = ""
     @State var date_of_birth: String = ""
@@ -97,6 +100,7 @@ struct VolunteerView: View {
     var body: some View {
         VolunteerContentView(
             userManager: userManager,
+            username: $username,
             first_name: $first_name,
             last_name: $last_name,
             date_of_birth: $date_of_birth,
@@ -119,6 +123,7 @@ struct VolunteerView: View {
 // Shared content view for volunteer functionality
 struct VolunteerContentView: View {
     @ObservedObject var userManager: UserManager
+    @Binding var username: String
     @Binding var first_name: String
     @Binding var last_name: String
     @Binding var date_of_birth: String
@@ -308,6 +313,14 @@ struct VolunteerContentView: View {
                                 
                             VStack(spacing: 16) {
                                 FormTextField(
+                                    label: "Username",
+                                    text: $username,
+                                    placeholder: "Enter your username",
+                                    isEmpty: empty_field && username.isEmpty,
+                                    isDisabled: isAutoFilled
+                                )
+                                
+                                FormTextField(
                                     label: "First Name",
                                     text: $first_name,
                                     placeholder: "Enter your first name",
@@ -355,7 +368,7 @@ struct VolunteerContentView: View {
                                 )
                                 
                                 Button(action: {
-                                    guard !first_name.isEmpty, !last_name.isEmpty, !date_of_birth.isEmpty, !email.isEmpty, !phone_number.isEmpty, !zipcode.isEmpty else {
+                                    guard !username.isEmpty, !first_name.isEmpty, !last_name.isEmpty, !date_of_birth.isEmpty, !email.isEmpty, !phone_number.isEmpty, !zipcode.isEmpty else {
                                         empty_field = true
                                         return
                                     }
@@ -459,6 +472,7 @@ struct VolunteerContentView: View {
                                     }
                                     
                                     let new_volunteer = Volunteer(
+                                        username: username,
                                         first_name: first_name,
                                         last_name: last_name,
                                         date_of_birth: date_of_birth,
@@ -529,6 +543,9 @@ struct VolunteerContentView: View {
         .onAppear {
             // Autofill form fields from logged-in user data
             if let user = userManager.currentUser {
+                if username.isEmpty {
+                    username = user.username
+                }
                 if first_name.isEmpty {
                     first_name = user.first_name
                 }

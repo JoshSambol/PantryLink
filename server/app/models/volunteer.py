@@ -5,8 +5,9 @@ class volunteer_model:
     def __init__(self, mongo: PyMongo):
         self.collection = mongo.cx["test"]["volunteers"]
 
-    def create_volunteer(self, first_name, last_name, date_of_birth, email, phone_number, zipcode, roles, availability, emergency_name, emergency_number, verified):
+    def create_volunteer(self, username, first_name, last_name, date_of_birth, email, phone_number, zipcode, roles, availability, emergency_name, emergency_number, verified):
         volunteer_data = {
+            "username": username,
             "first_name": first_name,
             "last_name": last_name, 
             "date_of_birth": date_of_birth,

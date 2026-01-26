@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, current_app, request
 from app.models.pantry import pantry_model
 from bson import ObjectId
 from flask_bcrypt import Bcrypt
-from datetime import datetime
+from datetime import datetime, timedelta
 
 pantry_routes = Blueprint("pantry_routes", __name__)
 
@@ -241,36 +241,55 @@ def get_schedule_for_date(pantry_id):
         date_key = request.args.get("date")
         if not date_key:
             return jsonify({"message": "Missing 'date' query parameter (YYYY-MM-DD)"}), 400
-        pantry_id = ObjectId(pantry_id)
+        pantry_id_obj = ObjectId(pantry_id)
         model = pantry_model(current_app.mongo)
         # Lazy cleanup of past schedules
         today_key = datetime.utcnow().strftime("%Y-%m-%d")
         try:
-            model.cleanup_past_schedules(pantry_id, today_key)
+            model.cleanup_past_schedules(pantry_id_obj, today_key)
         except Exception:
             pass
-        schedule = model.get_schedule_for_date(pantry_id, date_key)
+        
+        # Ensure schedules exist for the next 7 days (lazy generation)
+        try:
+            from datetime import timedelta
+            end_date = (datetime.utcnow() + timedelta(days=7)).strftime("%Y-%m-%d")
+            model.ensure_schedules_for_range(pantry_id_obj, today_key, end_date)
+        except Exception:
+            pass
+        
+        schedule = model.get_schedule_for_date(pantry_id_obj, date_key)
         return jsonify({"date": date_key, "schedule": schedule}), 200
     except Exception as e:
         return jsonify({"message": "Error getting schedule", "error": str(e)}), 400
 
 @pantry_routes.route("/<string:pantry_id>/schedule/<string:date_key>", methods=["PUT"])
 def put_schedule_for_date(pantry_id, date_key):
-    """Replace volunteer schedule for date_key (YYYY-MM-DD). Body: { schedule: [...] }"""
+    """
+    Replace volunteer schedule for date_key (YYYY-MM-DD). 
+    Body: { schedule: { shifts: [...], general_volunteers: [...] } } or legacy { schedule: [...] }
+    """
     try:
         data = request.get_json() or {}
-        schedule = data.get("schedule", [])
-        if not isinstance(schedule, list):
-            return jsonify({"message": "'schedule' must be an array"}), 400
-        pantry_id = ObjectId(pantry_id)
+        schedule = data.get("schedule")
+        
+        # Handle both new format (dict) and legacy format (list)
+        if schedule is None:
+            return jsonify({"message": "'schedule' is required"}), 400
+        if not isinstance(schedule, (list, dict)):
+            return jsonify({"message": "'schedule' must be an array or object"}), 400
+        
+        pantry_id_obj = ObjectId(pantry_id)
         model = pantry_model(current_app.mongo)
+        
         # Lazy cleanup of past schedules prior to save
         today_key = datetime.utcnow().strftime("%Y-%m-%d")
         try:
-            model.cleanup_past_schedules(pantry_id, today_key)
+            model.cleanup_past_schedules(pantry_id_obj, today_key)
         except Exception:
             pass
-        ok = model.save_schedule_for_date(pantry_id, date_key, schedule)
+        
+        ok = model.save_schedule_for_date(pantry_id_obj, date_key, schedule)
         if not ok:
             return jsonify({"message": "Pantry not found"}), 404
         return jsonify({"message": "Schedule saved"}), 200
@@ -281,14 +300,52 @@ def put_schedule_for_date(pantry_id, date_key):
 def delete_schedule_for_date(pantry_id, date_key):
     """Delete volunteer schedule for date_key (YYYY-MM-DD)."""
     try:
-        pantry_id = ObjectId(pantry_id)
+        pantry_id_obj = ObjectId(pantry_id)
         model = pantry_model(current_app.mongo)
-        ok = model.delete_schedule_for_date(pantry_id, date_key)
+        ok = model.delete_schedule_for_date(pantry_id_obj, date_key)
         if not ok:
             return jsonify({"message": "Pantry not found"}), 404
         return jsonify({"message": "Schedule deleted"}), 200
     except Exception as e:
         return jsonify({"message": "Error deleting schedule", "error": str(e)}), 400
+
+@pantry_routes.route("/user-schedule/<string:username>", methods=["GET"])
+def get_user_week_schedule(username):
+    """
+    Get all schedule entries for a user across all pantries for the next 7 days.
+    Returns list of {pantry_id, pantry_name, date, shift, time}.
+    """
+    try:
+        model = pantry_model(current_app.mongo)
+        today = datetime.utcnow()
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = (today + timedelta(days=7)).strftime("%Y-%m-%d")
+        
+        schedules = model.get_user_week_schedule(username, from_date, to_date)
+        return jsonify({"schedules": schedules}), 200
+    except Exception as e:
+        return jsonify({"message": "Error getting user schedule", "error": str(e)}), 400
+
+@pantry_routes.route("/check-user-conflict", methods=["GET"])
+def check_user_conflict():
+    """
+    Check if a user is already scheduled at another pantry on a given date.
+    Query params: username, date, exclude_pantry_id (optional)
+    Returns: { scheduled: bool, pantry_name: str or null, pantry_id: str or null }
+    """
+    try:
+        username = request.args.get("username")
+        date_key = request.args.get("date")
+        exclude_pantry_id = request.args.get("exclude_pantry_id")
+        
+        if not username or not date_key:
+            return jsonify({"message": "Missing 'username' or 'date' query parameter"}), 400
+        
+        model = pantry_model(current_app.mongo)
+        result = model.check_user_scheduled_on_date(username, date_key, exclude_pantry_id)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"message": "Error checking user conflict", "error": str(e)}), 400
 @pantry_routes.route("/<string:pantry_id>/schedule-settings", methods=["GET"])
 def get_schedule_settings(pantry_id):
     """Get volunteer schedule settings for a pantry"""

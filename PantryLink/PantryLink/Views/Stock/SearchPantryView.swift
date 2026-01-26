@@ -428,7 +428,7 @@ struct BasicPantryCard: View {
                     
                     // Address
                     if let street = mapItem.placemark.thoroughfare,
-                       let zip = mapItem.placemark.postalCode {
+                       let _ = mapItem.placemark.postalCode {
                         HStack(spacing: 4) {
                             Image(systemName: "location.fill")
                                 .font(.caption)

@@ -103,13 +103,13 @@ function SignupBox() {
     }
     
     return (
-        <Center>
-            <Container style={{ borderRadius: '40px', backgroundColor: '#fff', height: '50rem', width: '30rem', margin: '1rem' }}>
-                <Title order={1} style={{ padding: '2rem'}}>
+        <Center style={{ minHeight: '100vh', padding: '2rem 0' }}>
+            <Container style={{ borderRadius: '40px', backgroundColor: '#fff', maxHeight: '90vh', maxWidth: '40rem', width: 'min(95%, 32rem)', margin: '1rem', padding: '1.5rem', boxSizing: 'border-box', overflowY: 'auto' }}>
+                <Title order={1} style={{ padding: '1rem 0'}}>
                     Food Bank Sign Up
                 </Title>
                 <Center>
-                    <Fieldset legend="Food bank information" bg="transparent" style={{textAlign:'left', width:"22rem", height: "29rem", margin: '2rem'}}>
+                    <Fieldset legend="Food bank information" bg="transparent" style={{textAlign:'left', width:"100%", margin: '1rem 0'}}>
 
                         <Stack spacing="md">
                             <TextInput 
@@ -137,7 +137,7 @@ function SignupBox() {
                                 size="md" 
                                 required
                             />
-                            <Flex direction="row" justify="space-between" gap="md">
+                            <Flex direction="row" justify="space-between" gap="md" wrap="wrap">
                             <TextInput 
                                 label="Email" 
                                 placeholder="Enter your email"  
@@ -146,6 +146,7 @@ function SignupBox() {
                                 size="md" 
                                 type="email"
                                 required
+                                style={{ flex: '1 1 12rem' }}
                             />
                             <TextInput 
                                 label="Phone Number" 
@@ -154,6 +155,7 @@ function SignupBox() {
                                 onChange={(e) => handleInputChange('phone_number', e.target.value)} 
                                 size="md" 
                                 required
+                                style={{ flex: '1 1 12rem' }}
                             />
                             </Flex>
                             <TextInput 
@@ -180,7 +182,7 @@ function SignupBox() {
 
                 <Button 
                     onClick={handleSignUp}
-                    margin="xl" 
+                    style={{ marginTop: '1rem' }}
                     variant="light" 
                     color="gray" 
                     size="md" 
@@ -190,7 +192,7 @@ function SignupBox() {
                 >
                     {loading ? 'Creating Account...' : 'Sign Up'}
                 </Button>
-                <Text style={{padding: '2rem'}}>Already have an account? <Anchor onClick={() => navigate('/signin')}>Sign in here.</Anchor> </Text>
+                <Text style={{padding: '1.5rem 0 0 0', textAlign: 'center'}}>Already have an account? <Anchor onClick={() => navigate('/signin')}>Sign in here.</Anchor> </Text>
                 
             </Container>
         </Center>
